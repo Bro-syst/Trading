@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Передачи — локальный тест</title>
+  <link rel="stylesheet" href="/style.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <a class="skip" href="#main">Перейти к содержимому</a>
+  <header class="topbar"><div class="brand"><span class="brandmark" aria-hidden="true">↗</span><span>Передачи <small>локальный кабинет</small></span></div><span class="test-badge">ТЕСТОВЫЙ РЕЖИМ</span><button id="logout" class="text-button" hidden>Выйти</button></header>
+  <main id="main" class="shell">
+    <div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
+    <section id="login-view" class="login panel" hidden><div class="eyebrow">Локальный доступ</div><h1>Вход в кабинет</h1><p class="muted">Введите пароль тестового экземпляра.</p><form id="login-form"><label for="password">Пароль</label><div class="password-field"><input id="password" type="password" autocomplete="current-password" required><button id="password-toggle" class="password-toggle" type="button" aria-label="Показать пароль" aria-controls="password" aria-pressed="false" title="Показать пароль"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/><path id="password-eye-slash" d="M4 4l16 16" hidden/></svg></button></div><button class="primary" type="submit">Войти</button></form></section>
+    <div id="app-view" hidden>
+      <div class="page-heading"><div><div class="eyebrow">Рабочее пространство</div><h1>Предложения и передачи</h1><p class="subheading">Выберите дату и чат, чтобы подготовить передачу.</p></div><div class="date-control"><label for="date">Дата предложений</label><input id="date" type="date"></div></div>
+      <div class="context-note"><strong>Изолированный тест.</strong> История загружена не полностью; наличие записей не подтверждает актуальность предложений. Текст и файлы отправляются вручную.</div>
+      <nav class="main-nav" aria-label="Разделы"><button id="nav-chats" class="active" aria-current="page">Чаты и задачи</button><button id="nav-search">Поиск компаний</button><button id="nav-review">Проверка файлов</button><button id="nav-history">История</button></nav>
+      <section id="chats-view"><div id="overview"></div><div id="queue" hidden></div></section>
+      <section id="search-view" hidden><div class="section-heading"><div><div class="eyebrow">Поиск по данным</div><h2>Найти компанию</h2><p class="muted">Название или ИНН на выбранную дату.</p></div></div><form id="search-form" class="search-panel"><div class="search-form"><label class="sr-only" for="search-input">Название компании или ИНН</label><input id="search-input" type="search" placeholder="Название компании или ИНН"><button class="primary">Найти</button></div><details class="filters"><summary>Дополнительные фильтры</summary><div class="filter-grid"><div><label for="filter-category">Назначение</label><input id="filter-category" placeholder="Например, запчасти"></div><div><label for="filter-duration">Срок не более, календарных дней</label><input id="filter-duration" type="number" min="0" step="any" inputmode="decimal"></div><div><label for="filter-color">Светофор</label><select id="filter-color"><option value="">Любой</option><option value="green">Зелёный</option><option value="yellow">Жёлтый</option></select></div><div><label for="filter-min-rate">Исходная ставка не менее, %</label><input id="filter-min-rate" type="number" min="0" step="any" inputmode="decimal"></div><div><label for="filter-rate">Исходная ставка не более, %</label><input id="filter-rate" type="number" min="0" step="any" inputmode="decimal"></div><div><label for="filter-rate-type">Тип ставки</label><input id="filter-rate-type" placeholder="Например, комиссия"></div><div><label for="filter-rate-basis">Основание ставки</label><input id="filter-rate-basis" placeholder="Например, от суммы"></div></div><p class="helper">Для фильтра ставки укажите её тип и основание. Неполные или несопоставимые данные будут показаны отдельно как возможные совпадения.</p></details></form><div id="search-results"></div></section>
+      <section id="review-view" hidden><div class="section-heading"><div><div class="eyebrow">Открытые вопросы</div><h2>Проверка файлов</h2><p class="muted">Вопросы по файлам и карточкам за все даты. Уточнения и решения передайте ассистенту.</p></div><button id="refresh-review" class="secondary">Обновить</button></div><div id="review-results"></div></section><section id="history-view" hidden><div class="section-heading"><div><div class="eyebrow">Журнал событий</div><h2>Фактические отправки</h2><p class="muted">Здесь можно проверить сохранённое событие перед повтором операции.</p></div></div><div id="history-results"></div></section>
+    </div>
+  </main>
+  <div id="modal-root"></div>
+</body>
+</html>

@@ -1,0 +1,920 @@
+{
+  "date": "2026-11-17",
+  "note": "Ручная подготовка из имеющихся реестра и сохранённых сообщений; не является полным экспортом Telegram. Обязательно сверить с исходниками перед применением.",
+  "batches": [
+    {
+      "source_file": "дни/2026-11-17/входящие/mercury-finance/0752-0850.md",
+      "source_heading": "07:52",
+      "chat": "Mercury Finance",
+      "time": "07:52",
+      "text": "📢 УВАЖАЕМЫЕ ПАРТНЁРЫ!\n🏢🌍🤝 ФИЛИАЛ APEX\n📋🔹 ИНН: 9909747075\n💼💰 АКТУАЛЬНЫЕ ЦЕНЫ И УСЛОВИЯ\n\n🏗️ Строительные материалы\nС НДС 22 — 8%\nБезотчёт — 6%\n\n⚙️ Оборудование\nС НДС 22 — 8%\nБезотчёт — 6%\n\n🔩 Запчасти\nС НДС 22 — 8%\nБезотчёт — 6%\n\n💡 Электротовары\nС НДС 22 — 8%\nБезотчёт — 6%\n\n🔌 Электрооборудование\nС НДС 22 — 8%\nБезотчёт — 6%\n\n⚡🚀 ВЫДАЧА ДЕНЬ В ДЕНЬ!\n📄🔍 Платёжные поручения (ПП) направляйте на предварительную проверку.\n🤝 Готовы к сотрудничеству!\n📩 Ждём ваши заявки!",
+      "offers": [
+        {
+          "company": {
+            "name": "ФИЛИАЛ APEX",
+            "inn": "9909747075",
+            "inn_status": "unverified"
+          },
+          "terms": [
+            {
+              "category": "Строительные материалы; оборудование; запчасти; электротовары; электрооборудование",
+              "rate": "8",
+              "duration": null,
+              "duration_unit": null,
+              "vat": "22",
+              "color": null,
+              "conditions": "С НДС 22; ПП на предварительную проверку. Выдача день в день.",
+              "scope_confirmed": true,
+              "review": false
+            },
+            {
+              "category": "Строительные материалы; оборудование; запчасти; электротовары; электрооборудование",
+              "rate": "6",
+              "duration": null,
+              "duration_unit": null,
+              "vat": null,
+              "color": null,
+              "conditions": "Безотчёт; ПП на предварительную проверку. Выдача день в день.",
+              "scope_confirmed": true,
+              "review": false
+            }
+          ]
+        }
+      ],
+      "requests": []
+    },
+    {
+      "source_file": "дни/2026-11-17/входящие/mercury-finance/0752-0850.md",
+      "source_heading": "08:44",
+      "chat": "Mercury Finance",
+      "time": "08:44",
+      "text": "✅🚨\n7701346994 ООО \"АК\"\n7736314760 ООО \"Лайм\"\n9703238959 ООО \"Магнит\"\n9726057525 ООО ТД \"Милана\"\n9703241581 ООО ЭКСПЕРТ\n\n13 % стромат и инструмент\n12.5 % запчасти\n11.5 % мебель\n10 % ткани, упаковка, тнп\n9.5 % крошка пвх( его используют монолитчики и дорожники ), коробки, обувь",
+      "offers": [
+        {
+          "company": {
+            "name": "ООО АК",
+            "inn": "7701346994",
+            "inn_status": "unverified"
+          },
+          "terms": [
+            {
+              "category": "Стромат и инструмент",
+              "rate": "13",
+              "duration": null,
+              "duration_unit": null,
+              "vat": null,
+              "color": null,
+              "conditions": "Общие условия сообщения, применимость к каждой компании не подтверждена.",
+              "scope_confirmed": false,
+              "review": true
+            },
+            {
+              "category": "Запчасти",
+              "rate": "12.5",
+              "duration": null,
+              "duration_unit": null,
+              "vat": null,
+              "color": null,
+              "conditions": "Общие условия сообщения, применимость к каждой компании не подтверждена.",
+              "scope_confirmed": false,
+              "review": true
+            },
+            {
+              "category": "Мебель",
+              "rate": "11.5",
+              "duration": null,
+              "duration_unit": null,
+              "vat": null,
+              "color": null,
+              "conditions": "Общие условия сообщения, применимость к каждой компании не подтверждена.",
+              "scope_confirmed": false,
+              "review": true
+            },
+            {
+              "category": "Ткани, упаковка, ТНП",
+              "rate": "10",
+              "duration": null,
+              "duration_unit": null,
+              "vat": null,
+              "color": null,
+              "conditions": "Общие условия сообщения, применимость к каждой компании не подтверждена.",
+              "scope_confirmed": false,
+              "review": true
+            },
+            {
+              "category": "Крошка ПВХ, коробки, обувь",
+              "rate": "9.5",
+              "duration": null,
+              "duration_unit": null,
+              "vat": null,
+              "color": null,
+              "conditions": "Общие условия сообщения, применимость к каждой компании не подтверждена.",
+              "scope_confirmed": false,
+              "review": true
+            }
+          ]
+        },
+        {
+          "company": {
+            "name": "ООО Лайм",
+            "inn": "7736314760",
+            "inn_status": "unverified"
+          },
+          "terms": [
+            {
+              "category": "Стромат и инструмент",
+              "rate": "13",
+              "duration": null,
+              "duration_unit": null,
+              "vat": null,
+              "color": null,
+              "conditions": "Общие условия сообщения, применимость к каждой компании не подтверждена.",
+              "scope_confirmed": false,
+              "review": true
+            },
+            {
+              "category": "Запчасти",
+              "rate": "12.5",
+              "duration": null,
+              "duration_unit": null,
+              "vat": null,
+              "color": null,
+              "conditions": "Общие условия сообщения, применимость к каждой компании не подтверждена.",
+              "scope_confirmed": false,
+              "review": true
+            },
+            {
+              "category": "Мебель",
+              "rate": "11.5",
+              "duration": null,
+              "duration_unit": null,
+              "vat": null,
+              "color": null,
+              "conditions": "Общие условия сообщения, применимость к каждой компании не подтверждена.",
+              "scope_confirmed": false,
+              "review": true
+            },
+            {
+              "category": "Ткани, упаковка, ТНП",
+              "rate": "10",
+              "duration": null,
+              "duration_unit": null,
+              "vat": null,
+              "color": null,
+              "conditions": "Общие условия сообщения, применимость к каждой компании не подтверждена.",
+              "scope_confirmed": false,
+              "review": true
+            },
+            {
+              "category": "Крошка ПВХ, коробки, обувь",
+              "rate": "9.5",
+              "duration": null,
+              "duration_unit": null,
+              "vat": null,
+              "color": null,
+              "conditions": "Общие условия сообщения, применимость к каждой компании не подтверждена.",
+              "scope_confirmed": false,
+              "review": true
+            }
+          ]
+        },
+        {
+          "company": {
+            "name": "ООО Магнит",
+            "inn": "9703238959",
+            "inn_status": "unverified"
+          },
+          "terms": [
+            {
+              "category": "Стромат и инструмент",
+              "rate": "13",
+              "duration": null,
+              "duration_unit": null,
+              "vat": null,
+              "color": null,
+              "conditions": "Общие условия сообщения, применимость к каждой компании не подтверждена.",
+              "scope_confirmed": false,
+              "review": true
+            },
+            {
+              "category": "Запчасти",
+              "rate": "12.5",
+              "duration": null,
+              "duration_unit": null,
+              "vat": null,
+              "color": null,
+              "conditions": "Общие условия сообщения, применимость к каждой компании не подтверждена.",
+              "scope_confirmed": false,
+              "review": true
+            },
+            {
+              "category": "Мебель",
+              "rate": "11.5",
+              "duration": null,
+              "duration_unit": null,
+              "vat": null,
+              "color": null,
+              "conditions": "Общие условия сообщения, применимость к каждой компании не подтверждена.",
+              "scope_confirmed": false,
+              "review": true
+            },
+            {
+              "category": "Ткани, упаковка, ТНП",
+              "rate": "10",
+              "duration": null,
+              "duration_unit": null,
+              "vat": null,
+              "color": null,
+              "conditions": "Общие условия сообщения, применимость к каждой компании не подтверждена.",
+              "scope_confirmed": false,
+              "review": true
+            },
+            {
+              "category": "Крошка ПВХ, коробки, обувь",
+              "rate": "9.5",
+              "duration": null,
+              "duration_unit": null,
+              "vat": null,
+              "color": null,
+              "conditions": "Общие условия сообщения, применимость к каждой компании не подтверждена.",
+              "scope_confirmed": false,
+              "review": true
+            }
+          ]
+        },
+        {
+          "company": {
+            "name": "ООО ТД Милана",
+            "inn": "9726057525",
+            "inn_status": "unverified"
+          },
+          "terms": [
+            {
+              "category": "Стромат и инструмент",
+              "rate": "13",
+              "duration": null,
+              "duration_unit": null,
+              "vat": null,
+              "color": null,
+              "conditions": "Общие условия сообщения, применимость к каждой компании не подтверждена.",
+              "scope_confirmed": false,
+              "review": true
+            },
+            {
+              "category": "Запчасти",
+              "rate": "12.5",
+              "duration": null,
+              "duration_unit": null,
+              "vat": null,
+              "color": null,
+              "conditions": "Общие условия сообщения, применимость к каждой компании не подтверждена.",
+              "scope_confirmed": false,
+              "review": true
+            },
+            {
+              "category": "Мебель",
+              "rate": "11.5",
+              "duration": null,
+              "duration_unit": null,
+              "vat": null,
+              "color": null,
+              "conditions": "Общие условия сообщения, применимость к каждой компании не подтверждена.",
+              "scope_confirmed": false,
+              "review": true
+            },
+            {
+              "category": "Ткани, упаковка, ТНП",
+              "rate": "10",
+              "duration": null,
+              "duration_unit": null,
+              "vat": null,
+              "color": null,
+              "conditions": "Общие условия сообщения, применимость к каждой компании не подтверждена.",
+              "scope_confirmed": false,
+              "review": true
+            },
+            {
+              "category": "Крошка ПВХ, коробки, обувь",
+              "rate": "9.5",
+              "duration": null,
+              "duration_unit": null,
+              "vat": null,
+              "color": null,
+              "conditions": "Общие условия сообщения, применимость к каждой компании не подтверждена.",
+              "scope_confirmed": false,
+              "review": true
+            }
+          ]
+        },
+        {
+          "company": {
+            "name": "ООО ЭКСПЕРТ",
+            "inn": "9703241581",
+            "inn_status": "unverified"
+          },
+          "terms": [
+            {
+              "category": "Стромат и инструмент",
+              "rate": "13",
+              "duration": null,
+              "duration_unit": null,
+              "vat": null,
+              "color": null,
+              "conditions": "Общие условия сообщения, применимость к каждой компании не подтверждена.",
+              "scope_confirmed": false,
+              "review": true
+            },
+            {
+              "category": "Запчасти",
+              "rate": "12.5",
+              "duration": null,
+              "duration_unit": null,
+              "vat": null,
+              "color": null,
+              "conditions": "Общие условия сообщения, применимость к каждой компании не подтверждена.",
+              "scope_confirmed": false,
+              "review": true
+            },
+            {
+              "category": "Мебель",
+              "rate": "11.5",
+              "duration": null,
+              "duration_unit": null,
+              "vat": null,
+              "color": null,
+              "conditions": "Общие условия сообщения, применимость к каждой компании не подтверждена.",
+              "scope_confirmed": false,
+              "review": true
+            },
+            {
+              "category": "Ткани, упаковка, ТНП",
+              "rate": "10",
+              "duration": null,
+              "duration_unit": null,
+              "vat": null,
+              "color": null,
+              "conditions": "Общие условия сообщения, применимость к каждой компании не подтверждена.",
+              "scope_confirmed": false,
+              "review": true
+            },
+            {
+              "category": "Крошка ПВХ, коробки, обувь",
+              "rate": "9.5",
+              "duration": null,
+              "duration_unit": null,
+              "vat": null,
+              "color": null,
+              "conditions": "Общие условия сообщения, применимость к каждой компании не подтверждена.",
+              "scope_confirmed": false,
+              "review": true
+            }
+          ]
+        }
+      ],
+      "requests": []
+    },
+    {
+      "source_file": "дни/2026-11-17/входящие/mercury-finance/0752-0850.md",
+      "source_heading": "08:45 — три компании",
+      "chat": "Mercury Finance",
+      "time": "08:45",
+      "text": "📢 УВАЖАЕМЫЕ ПАРТНЁРЫ!\n\n🏢 АКТУАЛЬНЫЕ КОМПАНИИ:\n\n🔹 ООО «ПРИНЦИП ДЕВЕЛОПМЕНТ»\n📋 ИНН: 7714445015\n\n🔹 ООО «ТРАНСЛОГ»\n📋 ИНН: 7805769257\n\n🔹 ООО «ЭКЛИПС»\n📋 ИНН: 7814732084\n\n💰 СТАВКА — 11%\n\n⚡ ВЫДАЧА ДЕНЬ В ДЕНЬ!\n\n📦 НОМЕНКЛАТУРА В ОСТАТКАХ:\n\n🔩 Запчасти\n🚰 Сантехника\n💡 Электротовары\n🧵 Текстиль\n👞 Обувь\n📄 Бумага\n🛋️ Мебель\n🧹 Хозтовары\n👕 Одежда\n🏺 Декор\n\n🤝 НА ОБЪЁМЫ ПРЕДУСМОТРЕНЫ ИНДИВИДУАЛЬНЫЕ СКИДКИ!",
+      "offers": [
+        {
+          "company": {
+            "name": "ООО ПРИНЦИП ДЕВЕЛОПМЕНТ",
+            "inn": "7714445015",
+            "inn_status": "unverified"
+          },
+          "terms": [
+            {
+              "category": "Запчасти, сантехника, электротовары, текстиль, обувь, бумага, мебель, хозтовары, одежда, декор",
+              "rate": "11",
+              "duration": null,
+              "duration_unit": null,
+              "vat": null,
+              "color": null,
+              "conditions": "Общие условия; наличие каждой позиции у каждой компании не подтверждено. Индивидуальные скидки на объёмы. Выдача день в день.",
+              "scope_confirmed": false,
+              "review": true
+            }
+          ]
+        },
+        {
+          "company": {
+            "name": "ООО ТРАНСЛОГ",
+            "inn": "7805769257",
+            "inn_status": "unverified"
+          },
+          "terms": [
+            {
+              "category": "Запчасти, сантехника, электротовары, текстиль, обувь, бумага, мебель, хозтовары, одежда, декор",
+              "rate": "11",
+              "duration": null,
+              "duration_unit": null,
+              "vat": null,
+              "color": null,
+              "conditions": "Общие условия; наличие каждой позиции у каждой компании не подтверждено. Индивидуальные скидки на объёмы. Выдача день в день.",
+              "scope_confirmed": false,
+              "review": true
+            }
+          ]
+        },
+        {
+          "company": {
+            "name": "ООО ЭКЛИПС",
+            "inn": "7814732084",
+            "inn_status": "unverified"
+          },
+          "terms": [
+            {
+              "category": "Запчасти, сантехника, электротовары, текстиль, обувь, бумага, мебель, хозтовары, одежда, декор",
+              "rate": "11",
+              "duration": null,
+              "duration_unit": null,
+              "vat": null,
+              "color": null,
+              "conditions": "Общие условия; наличие каждой позиции у каждой компании не подтверждено. Индивидуальные скидки на объёмы. Выдача день в день.",
+              "scope_confirmed": false,
+              "review": true
+            }
+          ]
+        }
+      ],
+      "requests": []
+    },
+    {
+      "source_file": "дни/2026-11-17/входящие/mercury-finance/0752-0850.md",
+      "source_heading": "08:45 — шесть компаний",
+      "chat": "Mercury Finance",
+      "time": "08:45",
+      "text": "✅🚨\n**7751373129 ООО АФПАРК**\n**15% день в день**\n**Стройматериалы**\n🟡**ОТ ЖЕЛТЫХ С ТИПОЛОГИЕЙ ПО СОГЛАСОВАНИЮ +2 %**\n✅🚨\n**9714079323 ООО НИЛДОН**\n**15 % день в день**\n**Стройматериалы, в счете что надо напишем**\n✅🚨\nООО Сатурн ИНН: 9715444794\nСантехническое оборудование\n**Цена - 13 %**\n**выдача через день**\n✅🚨\nТД Меркурий\n9725119514 ООО \"ТД Меркурий\"\n14.5 % день в день\nВ пп товар/ материал / запчасти\nВ пп Оборудование\nВ упд ваша номенклатура\nЛюбое назначение\n**-материалы**\n**-хоз товары**\n**-Сантехника**\n**Комплектующие**\n**Текстильные изделия**\n**-Оборудование**\n**-Товар**\n**-Мебель**\n**-Упаковка**\n**-Электротовары**\n**-Инструменты**\n**-Автозапчасти**\n**-Кожгаллантерия**\n✅🚨\n7725838674 ООО \"Минт-Сервис\"\n15.5 % день в день\nЗа :\nкабель\nарматура\nОборудование\nЗапчасти\nКомплектующие\nПп от 5 млн\n**От новых клиентов берем суммы от 5 млн** 🚨✅\n✅🚨\n7810945028 ООО РАДУГА\n16.5% день в день\nбыт химия реальный ндс",
+      "offers": [
+        {
+          "company": {
+            "name": "ООО АФПАРК",
+            "inn": "7751373129",
+            "inn_status": "unverified"
+          },
+          "terms": [
+            {
+              "category": "Стройматериалы",
+              "rate": "15",
+              "duration": null,
+              "duration_unit": null,
+              "vat": null,
+              "color": null,
+              "conditions": "От желтых с типологией по согласованию +2% — значение требует уточнения. Выдача день в день.",
+              "scope_confirmed": true,
+              "review": true
+            }
+          ]
+        },
+        {
+          "company": {
+            "name": "ООО НИЛДОН",
+            "inn": "9714079323",
+            "inn_status": "unverified"
+          },
+          "terms": [
+            {
+              "category": "Стройматериалы",
+              "rate": "15",
+              "duration": null,
+              "duration_unit": null,
+              "vat": null,
+              "color": null,
+              "conditions": "В счете что надо напишем. Выдача день в день.",
+              "scope_confirmed": true,
+              "review": false
+            }
+          ]
+        },
+        {
+          "company": {
+            "name": "ООО Сатурн",
+            "inn": "9715444794",
+            "inn_status": "unverified"
+          },
+          "terms": [
+            {
+              "category": "Сантехническое оборудование",
+              "rate": "13",
+              "duration": null,
+              "duration_unit": null,
+              "vat": null,
+              "color": null,
+              "conditions": "Выдача через день.",
+              "scope_confirmed": true,
+              "review": false
+            }
+          ]
+        },
+        {
+          "company": {
+            "name": "ООО ТД Меркурий",
+            "inn": "9725119514",
+            "inn_status": "unverified"
+          },
+          "terms": [
+            {
+              "category": "Материалы, хозтовары, сантехника, комплектующие, текстильные изделия, оборудование, товар, мебель, упаковка, электротовары, инструменты, автозапчасти, кожгалантерия",
+              "rate": "14.5",
+              "duration": null,
+              "duration_unit": null,
+              "vat": null,
+              "color": null,
+              "conditions": "В ПП товар / материал / запчасти, оборудование; в УПД ваша номенклатура; любое назначение. Выдача день в день.",
+              "scope_confirmed": true,
+              "review": false
+            }
+          ]
+        },
+        {
+          "company": {
+            "name": "ООО Минт-Сервис",
+            "inn": "7725838674",
+            "inn_status": "unverified"
+          },
+          "terms": [
+            {
+              "category": "Кабель, арматура, оборудование, запчасти, комплектующие",
+              "rate": "15.5",
+              "duration": null,
+              "duration_unit": null,
+              "vat": null,
+              "color": null,
+              "conditions": "ПП от 5 млн; от новых клиентов суммы от 5 млн; валюта не указана. Выдача день в день.",
+              "scope_confirmed": true,
+              "review": false
+            }
+          ]
+        },
+        {
+          "company": {
+            "name": "ООО РАДУГА",
+            "inn": "7810945028",
+            "inn_status": "unverified"
+          },
+          "terms": [
+            {
+              "category": "Бытовая химия",
+              "rate": "16.5",
+              "duration": null,
+              "duration_unit": null,
+              "vat": null,
+              "color": null,
+              "conditions": "Реальный НДС. Выдача день в день.",
+              "scope_confirmed": true,
+              "review": false
+            }
+          ]
+        }
+      ],
+      "requests": []
+    },
+    {
+      "source_file": "дни/2026-11-17/входящие/mercury-finance/0752-0850.md",
+      "source_heading": "08:47",
+      "chat": "Mercury Finance",
+      "time": "08:47",
+      "text": "❗️ ВЫДАЧА ДЕНЬ В ДЕНЬ / НА СЛЕДУЮЩИЙ ДЕНЬ ❗️\n\nКрупный действующий завод Московской области по производству безалкогольных напитков в алюминиевых банках. Мощность — до 24 млн банок в месяц, штат — более 200 сотрудников. Поставляет продукцию крупнейшим торговым сетям России и в 23 страны.\n\nООО «УНИ ПАК» — ИНН 5028037514 🟢\nЗСК (ЦБ РФ): ЗЕЛЁНАЯ\nВыручка за 2025 год — 4,88 млрд ₽\n\n15% — выдача день в день / на следующий день\n\nНазначения:\n* разработка ПО, интеграция 1С, CRM и «Честного знака»;\n* рекламные услуги, брендбуки и печатная реклама на упаковке;\n* упаковочные материалы, тара, преформа, банки, упаковка и фулфилмент;\n* электрооборудование и комплектующие для производственных линий.\n\n16% — выдача день в день / на следующий день\n* упаковочные материалы и производственные услуги с доставкой в счёте и ЭТТН.\n\nСкладские услуги — 15%, выдача день в день / на следующий день\n* аренда склада;\n* ответственное хранение.\n\nДополнительные условия:\n* безотчётная оплата по договору — 6%, выдача день в день;\n* оплата с НДС — +1% к соответствующей ставке, выдача день в день.\n\n* Налоговые задолженности отсутствуют.\n* Уплачено налогов за 2025 год — около 1 млрд ₽.\n* Сайт: [unipack.pro](http://unipack.pro/)",
+      "offers": [
+        {
+          "company": {
+            "name": "ООО УНИ ПАК",
+            "inn": "5028037514",
+            "inn_status": "unverified"
+          },
+          "terms": [
+            {
+              "category": "Разработка ПО, интеграция 1С, CRM и «Честного знака»; рекламные услуги, брендбуки и печатная реклама на упаковке; упаковочные материалы, тара, преформа, банки, упаковка и фулфилмент; электрооборудование и комплектующие для производственных линий",
+              "rate": "15",
+              "duration": null,
+              "duration_unit": null,
+              "vat": null,
+              "color": null,
+              "conditions": "День в день / на следующий день. Оплата с НДС +1% к соответствующей ставке, день в день.",
+              "scope_confirmed": true,
+              "review": false
+            },
+            {
+              "category": "Упаковочные материалы и производственные услуги с доставкой в счёте и ЭТТН",
+              "rate": "16",
+              "duration": null,
+              "duration_unit": null,
+              "vat": null,
+              "color": null,
+              "conditions": "День в день / на следующий день. Оплата с НДС +1% к соответствующей ставке, день в день.",
+              "scope_confirmed": true,
+              "review": false
+            },
+            {
+              "category": "Аренда склада, ответственное хранение",
+              "rate": "15",
+              "duration": null,
+              "duration_unit": null,
+              "vat": null,
+              "color": null,
+              "conditions": "День в день / на следующий день. Оплата с НДС +1% к соответствующей ставке, день в день.",
+              "scope_confirmed": true,
+              "review": false
+            },
+            {
+              "category": "Безотчётная оплата по договору",
+              "rate": "6",
+              "duration": null,
+              "duration_unit": null,
+              "vat": null,
+              "color": null,
+              "conditions": "Дополнительное условие источника. Выдача день в день. Дополнительное условие; самостоятельная передача и область применения не подтверждены.",
+              "scope_confirmed": false,
+              "review": true
+            }
+          ]
+        }
+      ],
+      "requests": []
+    },
+    {
+      "source_file": "дни/2026-11-17/входящие/mercury-finance/0752-0850.md",
+      "source_heading": "08:50",
+      "chat": "Mercury Finance",
+      "time": "08:50",
+      "text": "✅ 🚨\n9731115885\nООО ТД-ГЛОБУС\n\n💰 Условия:\n✅Овощи и фрукты (ндс 10)\n6 % День в день. След день\n✅ Продукты питания (ндс 10)\n6 % День в день. След день\nПродукты питания ( ндс 22)\n7 % День в день. След день",
+      "offers": [
+        {
+          "company": {
+            "name": "ООО ТД-ГЛОБУС",
+            "inn": "9731115885",
+            "inn_status": "unverified"
+          },
+          "terms": [
+            {
+              "category": "Овощи и фрукты",
+              "rate": "6",
+              "duration": null,
+              "duration_unit": null,
+              "vat": "10",
+              "color": null,
+              "conditions": "День в день / следующий день.",
+              "scope_confirmed": true,
+              "review": false
+            },
+            {
+              "category": "Продукты питания",
+              "rate": "6",
+              "duration": null,
+              "duration_unit": null,
+              "vat": "10",
+              "color": null,
+              "conditions": "День в день / следующий день.",
+              "scope_confirmed": true,
+              "review": false
+            },
+            {
+              "category": "Продукты питания",
+              "rate": "7",
+              "duration": null,
+              "duration_unit": null,
+              "vat": "22",
+              "color": null,
+              "conditions": "День в день / следующий день.",
+              "scope_confirmed": true,
+              "review": false
+            }
+          ]
+        }
+      ],
+      "requests": []
+    },
+    {
+      "source_file": "дни/2026-11-17/входящие/otcu1-new-27-rr/0954-0957.md",
+      "source_heading": "09:54 — Viki",
+      "chat": "OTCu1 new 27 / РР",
+      "time": "09:54",
+      "text": "🌍Импортеры :\n\n📍Мегаопт 9725148716\n📍Логистика Восток 2511135114\n📍Синергия 2511132434\n\nНазначения:\n🔹Материалы\n🔹оборудование\n🔹комплектующие\n\n💰Ставка: 16,5\n💯Выдача: 1-2\n\n🔺Двойная номенклатура🔺",
+      "offers": [
+        {
+          "company": {
+            "name": "Мегаопт",
+            "inn": "9725148716",
+            "inn_status": "unverified"
+          },
+          "terms": [
+            {
+              "category": "Материалы, оборудование, комплектующие",
+              "rate": null,
+              "duration": null,
+              "duration_unit": null,
+              "vat": null,
+              "color": null,
+              "conditions": "Ставка 16,5 (единица не указана), выдача 1-2 (единица не указана), двойная номенклатура; общие условия требуют подтверждения.",
+              "scope_confirmed": false,
+              "review": true
+            }
+          ]
+        },
+        {
+          "company": {
+            "name": "Логистика Восток",
+            "inn": "2511135114",
+            "inn_status": "unverified"
+          },
+          "terms": [
+            {
+              "category": "Материалы, оборудование, комплектующие",
+              "rate": null,
+              "duration": null,
+              "duration_unit": null,
+              "vat": null,
+              "color": null,
+              "conditions": "Ставка 16,5 (единица не указана), выдача 1-2 (единица не указана), двойная номенклатура; общие условия требуют подтверждения.",
+              "scope_confirmed": false,
+              "review": true
+            }
+          ]
+        },
+        {
+          "company": {
+            "name": "Синергия",
+            "inn": "2511132434",
+            "inn_status": "unverified"
+          },
+          "terms": [
+            {
+              "category": "Материалы, оборудование, комплектующие",
+              "rate": null,
+              "duration": null,
+              "duration_unit": null,
+              "vat": null,
+              "color": null,
+              "conditions": "Ставка 16,5 (единица не указана), выдача 1-2 (единица не указана), двойная номенклатура; общие условия требуют подтверждения.",
+              "scope_confirmed": false,
+              "review": true
+            }
+          ]
+        }
+      ],
+      "requests": []
+    },
+    {
+      "source_file": "дни/2026-11-17/входящие/otcu1-new-27-rr/0954-0957.md",
+      "source_heading": "09:56 — Gaz",
+      "chat": "OTCu1 new 27 / РР",
+      "time": "09:56",
+      "text": "@Felix_ivo металл сервис есть счета ? Могу все забирать",
+      "offers": [],
+      "requests": [
+        {
+          "text": "@Felix_ivo металл сервис есть счета? Могу все забирать"
+        }
+      ]
+    },
+    {
+      "source_file": "дни/2026-11-17/входящие/otcu1-new-27-rr/0954-0957.md",
+      "source_heading": "09:57 — Viki",
+      "chat": "OTCu1 new 27 / РР",
+      "time": "09:57",
+      "text": "📍ООО Чистый дом 9102000373\n📍ООО АТЛАНТ ЮГ 6166105256\n📍ООО ДЕПО 22 9109018186\n📍ООО СОЮЗ ЮГ 9102050663\n📍ООО БОГАТЫРЬ 9102033467\n\n🔹Бытовая химия / хоз товары / постельное белье / тнп\n\n💰Ставка: 19%\n💯Выдача: 2-3",
+      "offers": [
+        {
+          "company": {
+            "name": "ООО Чистый дом",
+            "inn": "9102000373",
+            "inn_status": "unverified"
+          },
+          "terms": [
+            {
+              "category": "Бытовая химия, хозтовары, постельное белье, ТНП",
+              "rate": "19",
+              "duration": null,
+              "duration_unit": null,
+              "vat": null,
+              "color": null,
+              "conditions": "Выдача 2-3, единица не указана; общие условия требуют подтверждения.",
+              "scope_confirmed": false,
+              "review": true
+            }
+          ]
+        },
+        {
+          "company": {
+            "name": "ООО АТЛАНТ ЮГ",
+            "inn": "6166105256",
+            "inn_status": "unverified"
+          },
+          "terms": [
+            {
+              "category": "Бытовая химия, хозтовары, постельное белье, ТНП",
+              "rate": "19",
+              "duration": null,
+              "duration_unit": null,
+              "vat": null,
+              "color": null,
+              "conditions": "Выдача 2-3, единица не указана; общие условия требуют подтверждения.",
+              "scope_confirmed": false,
+              "review": true
+            }
+          ]
+        },
+        {
+          "company": {
+            "name": "ООО ДЕПО 22",
+            "inn": "9109018186",
+            "inn_status": "unverified"
+          },
+          "terms": [
+            {
+              "category": "Бытовая химия, хозтовары, постельное белье, ТНП",
+              "rate": "19",
+              "duration": null,
+              "duration_unit": null,
+              "vat": null,
+              "color": null,
+              "conditions": "Выдача 2-3, единица не указана; общие условия требуют подтверждения.",
+              "scope_confirmed": false,
+              "review": true
+            }
+          ]
+        },
+        {
+          "company": {
+            "name": "ООО СОЮЗ ЮГ",
+            "inn": "9102050663",
+            "inn_status": "unverified"
+          },
+          "terms": [
+            {
+              "category": "Бытовая химия, хозтовары, постельное белье, ТНП",
+              "rate": "19",
+              "duration": null,
+              "duration_unit": null,
+              "vat": null,
+              "color": null,
+              "conditions": "Выдача 2-3, единица не указана; общие условия требуют подтверждения.",
+              "scope_confirmed": false,
+              "review": true
+            }
+          ]
+        },
+        {
+          "company": {
+            "name": "ООО БОГАТЫРЬ",
+            "inn": "9102033467",
+            "inn_status": "unverified"
+          },
+          "terms": [
+            {
+              "category": "Бытовая химия, хозтовары, постельное белье, ТНП",
+              "rate": "19",
+              "duration": null,
+              "duration_unit": null,
+              "vat": null,
+              "color": null,
+              "conditions": "Выдача 2-3, единица не указана; общие условия требуют подтверждения.",
+              "scope_confirmed": false,
+              "review": true
+            }
+          ]
+        }
+      ],
+      "requests": []
+    },
+    {
+      "source_file": "дни/2026-11-17/входящие/otcu1-new-27-rr/0953-револ.md",
+      "source_heading": "09:53",
+      "chat": "OTCu1 new 27 / РР",
+      "time": "09:53",
+      "text": "# OTCu1 new 27 / РР — предложение ООО «Револ», 17.11.2026\n\nИсточник: Viki, время на скриншоте: edited 09:53 (часовой пояс не указан). Пользователь прислал текст и скачанную карточку; скриншот показывает их в одном сообщении чата.\n\nООО \"Револ\" 7733446222\n\n🔹 Запчасти/детали\n\n💰 Цена: 18%\n💯Выдача: 2д\n\nВложение: исходное имя `Карточка_организации_РЕВОЛ_Альфа_счёт.pdf`; [копия карточки в папке компании](../../../../компании/7733446222/документы/2026-11-17_otcu1_карточка_револ_альфа.pdf).\n",
+      "offers": [
+        {
+          "company": {
+            "name": "ООО Револ",
+            "inn": "7733446222",
+            "inn_status": "unverified"
+          },
+          "terms": [
+            {
+              "category": "Запчасти/детали",
+              "rate": "18",
+              "duration": 2,
+              "duration_unit": "day",
+              "vat": null,
+              "color": null,
+              "conditions": "",
+              "scope_confirmed": true,
+              "review": false
+            }
+          ]
+        }
+      ],
+      "requests": []
+    }
+  ],
+  "document": {
+    "source_path": "компании/7733446222/документы/2026-11-17_otcu1_карточка_револ_альфа.pdf",
+    "inn": "7733446222",
+    "source_file": "дни/2026-11-17/входящие/otcu1-new-27-rr/0953-револ.md"
+  }
+}
