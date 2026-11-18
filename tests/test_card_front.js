@@ -33,7 +33,7 @@ for(const searchable of [true,false]){
  assert.doesNotMatch(emptySummary,/<b>Комментарий:<\/b>/);
  assert.match(html,/Первая строка\n&lt;вторая&gt;/);
  assert.match(summary,/Комментарий: текст в клиентском тексте/);
- assert.match(summary,/Светофор: 🟢 зелёный/);
+ assert.doesNotMatch(summary,/Светофор: 🟢 зелёный/);
  assert.match(summary,/Комментарий в тексте отличается от сохранённого комментария/);
  const matching={...input,public_text:{revision:1,preview:'Условия\nСветофор: 🟢 зелёный\nКомментарий: Первая строка\n<вторая>'}};
  state.queueCards.set('1',matching);
@@ -60,7 +60,7 @@ for(const searchable of [true,false]){
  assert.equal(input.public_text.preview,'Начало\nСветофор: 🟢 зелёный\nКомментарий: текст в клиентском тексте');
  const manual={...input,public_text:{revision:1,preview:'Комментарий: первая строка\nСветофор: 🟢 зелёный'}};
  state.queueCards.set('1',manual);
- const manualHtml=taskCard(manual,searchable);assert.ok(manualHtml.includes(manual.public_text.preview));assert.doesNotMatch(manualHtml,/Светофор в тексте отличается/);
+ const manualHtml=taskCard(manual,searchable);assert.doesNotMatch(manualHtml,/Светофор: 🟢 зелёный/);assert.match(manualHtml,/Комментарий: первая строка/);assert.doesNotMatch(manualHtml,/Светофор в тексте отличается/);
  const auto={...input,public_text:{revision:null,generated_signal:true,preview:'Условия\nСветофор: 🟢 зелёный'}};
  state.queueCards.set('1',auto);
  const autoHtml=taskCard(auto,searchable);assert.doesNotMatch(autoHtml,/Светофор: 🟢 зелёный/);assert.equal(auto.public_text.preview,'Условия\nСветофор: 🟢 зелёный');

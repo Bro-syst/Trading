@@ -173,9 +173,9 @@ function cardPreviewSignal(text, signal, generatedSignal){
  const expected={зелёный:'🟢 зелёный',жёлтый:'🟡 жёлтый',красный:'🔴 красный','не указан':'не указан'}[signal];
  const lines=String(text).split('\n'), signalLines=lines.filter(line=>line.replace(/\r$/, '').startsWith('Светофор:'));
  const exact=expected&&signalLines.length===1&&signalLines[0].replace(/\r$/, '')==='Светофор: '+expected;
- // Only the final line of a text with verified generated provenance is known to be the generated signal.
- const hide=exact&&generatedSignal===true&&lines[lines.length-1]===signalLines[0];
- return {text:hide?lines.slice(0,-1).join('\n'):text, mismatch:signalLines.length>0&&!exact};
+ // Hide only an exact duplicate in the card; the saved client text stays unchanged.
+ const hide=Boolean(exact);
+ return {text:hide?lines.filter(line=>line!==signalLines[0]).join('\n'):text, mismatch:signalLines.length>0&&!exact};
 }
 function cardPreviewComment(text, comment){
  if(!comment)return {duplicate:false,mismatch:false};
