@@ -74,7 +74,7 @@ class LocalWebIndependent(unittest.TestCase):
         item=self.tasks()[0]; self.assertEqual(item['status'],'review'); self.assertIn('markup_not_agreed', item['reasons'])
         self.cli('pricing', {'term_id':tid,'markup':'1','reason':'ТЕСТ +1 п.п.'})
         item=self.tasks()[0]; self.assertEqual(item['status'],'pending')
-        block=self.prepare(item); self.assertIn('Цена: 11%',block['text']); self.assertIn('НДС: не указан',block['text']); self.assertNotIn('Source A',block['text'])
+        block=self.prepare(item); self.assertIn('Цена: 11%',block['text']); self.assertIn('НДС компании: не указан',block['text']); self.assertNotIn('Source A',block['text'])
         self.assertEqual(self.tasks()[0]['status'],'pending')
         send={'block_id':block['id'],'operation_id':'request-12345','version':block['version'],'task_ids':[item['id']],'document_ids':[]}
         first=self.cli('web-confirm',send); second=self.cli('web-confirm',send); self.assertEqual(first['send_ids'],second['send_ids'])
@@ -136,15 +136,15 @@ class LocalWebIndependent(unittest.TestCase):
             self.assertEqual(db.execute('SELECT COUNT(*) FROM corrections').fetchone()[0],1)
         finally: db.close()
 
-    def test_two_variants_of_one_offer_share_one_company_header(self):
+    def test_two_variants_of_one_offer_keep_separate_public_texts(self):
         msg=self.cli('ingest',{'chat_id':self.a,'date':DAY,'text':'ТЕСТ две цены'})
         terms=[{'category':'материалы','rate':rate,'rate_unit':'%','vat':vat,'scope_confirmed':True,'review':False} for rate,vat in [('8','с НДС 22%'),('6','безотчёт')]]
         offer=self.cli('import',{'message_id':msg['message_id'],'offers':[{'company':{'name':'ТЕСТ Компания','inn':'7733446222','inn_status':'verified','confirmation_kind':'user','confirmation_source':'ТЕСТ пользователь'},'terms':terms}]})
         for tid in offer['term_ids']: self.cli('pricing',{'term_id':tid,'markup':'0','reason':'ТЕСТ без наценки'})
         items=self.tasks(); self.assertTrue(all(x['status']=='pending' for x in items),items)
         block=self.cli('web-prepare',{'chat_id':self.b,'date':DAY,'task_ids':[x['id'] for x in items],'versions':{str(x['id']):x['version'] for x in items}})
-        self.assertEqual(block['text'].count('ТЕСТ Компания — ИНН'),1)
-        self.assertIn('8%',block['text']); self.assertIn('6%',block['text']); self.assertIn('с НДС 22%',block['text']); self.assertIn('безотчёт',block['text'])
+        self.assertEqual(block['text'].count('ТЕСТ Компания — ИНН'),2)
+        self.assertIn('8%',block['text']); self.assertIn('6%',block['text']); self.assertNotIn('безотчёт',block['text']); self.assertTrue(block['warnings'])
 
     def test_v2_identity_requires_confirmation_provenance(self):
         message=self.cli('ingest',{'chat_id':self.a,'date':DAY,'text':'ТЕСТ ИНН'})
@@ -170,7 +170,7 @@ class LocalWebIndependent(unittest.TestCase):
         items=self.tasks(); self.assertEqual(len(items),2)
         self.assertTrue(all(i['comparison']['comparable'] for i in items),items)
         self.assertTrue(items[0]['comparison']['lowest']); self.assertEqual(items[0]['final_rate'],'14')
-        self.assertEqual(items[0]['status'],'pending'); block=self.prepare(items[0]); self.assertIn('14%',block['text']); self.assertIn('22%',block['text']); self.assertNotIn('Source C',block['text'])
+        self.assertEqual(items[0]['status'],'pending'); block=self.prepare(items[0]); self.assertIn('14%',block['text']); self.assertTrue(block['warnings']); self.assertNotIn('Source C',block['text'])
 
     def test_multiple_sources_with_different_minimum_are_not_ranked(self):
         source2=self.cli('chat',{'name':'Source C'})['chat_id']; cid=None
@@ -211,6 +211,7 @@ class LocalWebIndependent(unittest.TestCase):
             if data is not None: h['Content-Type']='application/json'
             conn.request(method,path,payload,h); response=conn.getresponse(); body=response.read(); result=(response.status,dict(response.getheaders()),json.loads(body) if body else None); conn.close(); return result
         self.assertEqual(req('GET','/api/chats?date='+DAY)[0],401)
+        self.assertEqual(req('GET','/api/sources?date='+DAY)[0],401)
         self.assertEqual(req('POST','/api/login',{'password':password})[0],403)
         status,headers,body=req('POST','/api/login',{'password':password},{'Origin':'http://'+host})
         self.assertEqual(status,200); cookie=headers['Set-Cookie'].split(';')[0]; csrf=body['csrf']
@@ -248,8 +249,21 @@ class LocalWebIndependent(unittest.TestCase):
         status,_,search=req('GET','/api/search?q=7733446222&date='+DAY,headers={'Cookie':cookie})
         self.assertEqual({x['source_chat'] for x in search['results']},{'Source A','ТЕСТ Новый источник'})
         self.assertIsNone(next(x for x in search['results'] if x['term_id']==other['term_ids'][0])['final_rate'])
+        status,_,sources=req('GET','/api/sources?date='+DAY,headers={'Cookie':cookie})
+        self.assertEqual(status,200,sources)
+        self.assertEqual({(x['id'],x['count']) for x in sources['sources']},{(self.a,1),(new_chat,1)})
+        status,_,filtered=req('GET',f'/api/search?date={DAY}&source_chat_id={self.a}',headers={'Cookie':cookie})
+        self.assertEqual(status,200,filtered)
+        self.assertEqual([x['term_id'] for x in filtered['results']],[tid])
+        unfiltered=next(x for x in search['results'] if x['term_id']==tid)
+        self.assertEqual(filtered['results'][0]['unknown'],unfiltered['unknown'])
+        self.assertEqual(req('GET',f'/api/search?date={DAY}&source_chat_id=bad',headers={'Cookie':cookie})[0],409)
+        self.assertEqual(req('GET','/api/sources?date=bad',headers={'Cookie':cookie})[0],409)
+        self.assertEqual(req('GET','/api/sources?date=2026-11-16',headers={'Cookie':cookie})[2]['sources'],[])
         # Keep the concurrency scenario independent of the deliberately unresolved two-source case.
         self.cli('update',{'action':'withdraw','term_id':other['term_ids'][0],'reason':'ТЕСТ сценарий завершён'})
+        self.assertEqual([x['id'] for x in req('GET','/api/sources?date='+DAY,headers={'Cookie':cookie})[2]['sources']],[self.a])
+        self.assertEqual(req('GET',f'/api/search?date={DAY}&source_chat_id={new_chat}',headers={'Cookie':cookie})[2]['results'],[])
         self.cli('update',{'action':'risk_decision','chat_id':self.b,'date':DAY,'term_id':tid,'reason':'ТЕСТ: снятый источник проверен'})
         status,h2,body2=req('POST','/api/login',{'password':password},{'Origin':'http://'+host})
         cookie2=h2['Set-Cookie'].split(';')[0]; csrf2=body2['csrf']

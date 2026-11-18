@@ -95,6 +95,66 @@ class TradingWorkflow(unittest.TestCase):
         draft = self.run_cli('draft', {'chat_id': self.a, 'date': DAY})
         self.assertNotIn(other['term_ids'][0], [i['term_id'] for i in draft['items']])
 
+    def test_unverified_valid_inn_matches_separate_ids_for_source_and_sent(self):
+        company = {'name': 'Одинаковая', 'inn': '7733446222', 'inn_status': 'unverified'}
+        _, first = self.offer(self.a, company=company)
+        tid = first['term_ids'][0]
+        item = next(x for x in self.run_cli('plan', {'chat_id': self.c, 'date': DAY})['items'] if x['term_id'] == tid)
+        self.assertEqual(item['reason'], 'ok')
+        self.assertEqual(item['inn_status'], 'unverified')
+        self.assertEqual(next(x for x in self.run_cli('search', {'date': DAY})['items'] if x['term_id'] == tid)['match'], 'full')
+        self.assertNotIn(tid, [x['term_id'] for x in self.run_cli('review')['items']])
+        draft = self.run_cli('draft', {'chat_id': self.c, 'date': DAY})
+        self.run_cli('confirm', {'block_id': draft['block_id'], 'term_ids': [tid]})
+        _, second = self.offer(self.b, company=company, terms=[self.term(rate='19')])
+        self.assertNotEqual(first['company_ids'][0], second['company_ids'][0])
+        next_item = next(x for x in self.run_cli('plan', {'chat_id': self.c, 'date': DAY})['items'] if x['term_id'] == second['term_ids'][0])
+        self.assertIn('company_previously_sent_review', next_item['reasons'])
+        _, own = self.offer(self.c, company=company, terms=[self.term(rate='22')])
+        plan = self.run_cli('plan', {'chat_id': self.c, 'date': DAY})
+        for item in plan['items']:
+            if item['term_id'] in (tid, second['term_ids'][0], own['term_ids'][0]):
+                self.assertIn('recipient_source_today', item['reasons'])
+                self.assertNotIn('possible_identity_conflict_review', item['reasons'])
+
+    def test_conflicting_identity_still_blocks_own_and_prior_send_by_valid_inn(self):
+        company={'name':'Совпадающий ИНН','inn':'7733446222','inn_status':'unverified'}
+        _, original=self.offer(self.a, company=company)
+        draft=self.run_cli('draft', {'chat_id':self.c,'date':DAY})
+        self.run_cli('confirm', {'block_id':draft['block_id'],'term_ids':original['term_ids']})
+        _, conflicting=self.offer(self.b, company={**company,'inn_status':'conflict'})
+        tid=conflicting['term_ids'][0]
+        item=next(x for x in self.run_cli('plan', {'chat_id':self.c,'date':DAY})['items'] if x['term_id']==tid)
+        self.assertIn('company_previously_sent_review',item['reasons'])
+        self.assertIn('identity_review',item['reasons'])
+        self.offer(self.c, company={**company,'inn_status':'conflict'})
+        item=next(x for x in self.run_cli('plan', {'chat_id':self.c,'date':DAY})['items'] if x['term_id']==original['term_ids'][0])
+        self.assertIn('recipient_source_today',item['reasons'])
+        self.assertIn('possible_identity_conflict_review',item['reasons'])
+        self.run_cli('update', {'action':'risk_decision','chat_id':self.c,'date':DAY,'term_id':item['term_id'],'reason':'attempt'},ok=False)
+
+    def test_duplicate_sources_cannot_enter_one_draft_after_review(self):
+        company={'name':'Одна компания','inn':'7733446222','inn_status':'unverified'}
+        _, one=self.offer(self.a, company=company)
+        _, two=self.offer(self.b, company=company, terms=[self.term(rate='19')])
+        plan=self.run_cli('plan', {'chat_id':self.c,'date':DAY})
+        for item in plan['items']:
+            self.assertIn('multiple_sources_review', item['reasons'])
+            self.run_cli('update', {'action':'risk_decision','chat_id':self.c,'date':DAY,
+                                    'term_id':item['term_id'],'reason':'reviewed'})
+        self.run_cli('draft', {'chat_id':self.c,'date':DAY}, ok=False)
+
+    def test_invalid_inn_and_real_identity_conflicts_remain_reviewed(self):
+        _, invalid = self.offer(self.a, company={'name':'Плохой ИНН','inn':'123','inn_status':'unverified'})
+        _, one = self.offer(self.a, company={'name':'Разное название','inn':'7733446222','inn_status':'unverified'})
+        _, other = self.offer(self.b, company={'name':'Другое название','inn':'7733446222','inn_status':'unverified'})
+        _, conflict = self.offer(self.a, company={'name':'Конфликт','inn':'7707083893','inn_status':'conflict'})
+        plan = {x['term_id']: x for x in self.run_cli('plan', {'chat_id': self.c, 'date': DAY})['items']}
+        self.assertIn('identity_review', plan[invalid['term_ids'][0]]['reasons'])
+        self.assertIn('identity_review', plan[conflict['term_ids'][0]]['reasons'])
+        for result in (one, other):
+            self.assertIn('possible_identity_conflict_review', plan[result['term_ids'][0]]['reasons'])
+
     def test_unknown_common_scope_and_missing_identity_do_not_enter_draft(self):
         _, ambiguous = self.offer(self.a, company={'name': 'Без ИНН', 'inn': None, 'inn_status': 'missing'},
                                   terms=[self.term(scope_confirmed=False, review=True)])
@@ -397,7 +457,8 @@ class TradingWorkflow(unittest.TestCase):
         item = next(x for x in self.run_cli('search', {'date': DAY})['items']
                     if x['term_id'] == result['term_ids'][0])
         self.assertEqual(item['match'], 'possible')
-        self.assertTrue({'identity_review', 'terms_review'}.issubset(item['unknown']))
+        self.assertIn('terms_review', item['unknown'])
+        self.assertNotIn('identity_review', item['unknown'])
 
     def test_search_separates_unknown_fields_from_confirmed_matches(self):
         _, result = self.offer(self.a, terms=[
@@ -423,6 +484,12 @@ class TradingWorkflow(unittest.TestCase):
                 self.assertEqual([x['term_id'] for x in items], [result['term_ids'][0]])
         yellow = self.run_cli('search', {'date': DAY, 'category': 'услуги', 'color': 'жёлтый'})['items']
         self.assertEqual([x['term_id'] for x in yellow], [result['term_ids'][1]])
+
+    def test_search_red_color_synonyms(self):
+        _, result = self.offer(self.a, terms=[self.term(color='red'), self.term(color='красный')])
+        for color in ('red', 'красный', 'красная'):
+            items = self.run_cli('search', {'date': DAY, 'color': color})['items']
+            self.assertEqual({x['term_id'] for x in items}, set(result['term_ids']))
 
     def test_coverage_records_do_not_imply_completeness(self):
         self.ingest(self.a, 'Первое сообщение')

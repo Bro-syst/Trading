@@ -37,9 +37,17 @@ class Handler(BaseHTTPRequestHandler):
         s=SESSIONS.get(token)
         if s and s['expires']>time.time(): return s
         SESSIONS.pop(token,None); return None
-    def body(self):
-        t.require(self.headers.get('Content-Type','').split(';')[0]=='application/json','Требуется JSON'); n=int(self.headers.get('Content-Length','0')); t.require(0<n<=1000000,'Неверный размер запроса'); p=json.loads(self.rfile.read(n)); t.require(isinstance(p,dict),'Требуется объект'); return p
+    def body(self,limit=1000000):
+        t.require(self.headers.get('Content-Type','').split(';')[0]=='application/json','Требуется JSON'); n=int(self.headers.get('Content-Length','0')); t.require(0<n<=limit,'Неверный размер запроса'); p=json.loads(self.rfile.read(n)); t.require(isinstance(p,dict),'Требуется объект'); return p
     def do_GET(self):
+        path=urlsplit(self.path).path
+        if path.startswith('/public/documents/'):
+            try:
+                db=core.connect(self.server.root)
+                try: name,data=core.shared_document(db,self.server.root,path[len('/public/documents/'):])
+                finally: db.close()
+                self.send_response(200); self.send_header('Content-Type','application/octet-stream'); self.send_header('Content-Disposition',"attachment; filename*=UTF-8''"+__import__('urllib.parse',fromlist=['quote']).quote(name,safe='')); self.send_header('Content-Length',str(len(data))); self.send_header('Cache-Control','no-store'); self.send_header('X-Content-Type-Options','nosniff'); self.send_header('Content-Security-Policy',"default-src 'none'; sandbox"); self.end_headers(); self.wfile.write(data); return
+            except (ValueError,TypeError,KeyError,sqlite3.Error,OSError,StopIteration): return self.reply(404,{'error':'Документ недоступен'})
         if not self.host_ok(): return self.reply(403,{'error':'Недопустимый адрес'})
         parsed=urlsplit(self.path); path=parsed.path; q=parse_qs(parsed.query)
         if path in ('/','/index.html','/style.css','/app.js'):
@@ -66,15 +74,20 @@ class Handler(BaseHTTPRequestHandler):
                     result={'chats':chats,'past_dates':past}
                 elif path=='/api/tasks':
                     date=q.get('date',[None])[0]; chat=int(q.get('chat_id',['0'])[0]); result={'tasks':core.queue(db,self.server.root,chat,date),'coverage':'Проверена только загруженная история; её полнота не предполагается.'}
+                elif path=='/api/sources':
+                    result={'sources':core.sources(db,q.get('date',[None])[0])}
                 elif path.startswith('/api/blocks/'):
                     result=core.block(db,self.server.root,int(path.split('/')[3]))
+                elif path=='/api/product-groups': result={'groups':core.product_groups()}
+                elif path=='/api/vat-options': result={'values':list(core.VAT_VALUES)}
                 elif path=='/api/search':
-                    filters={key:q[key][0] for key in ('date','q','category','max_duration','min_rate','max_rate','rate_type','rate_basis','color') if key in q and q[key][0]!=''}
+                    filters={key:q[key][0] for key in ('date','q','category','max_duration','min_rate','max_rate','rate_type','rate_basis','color','offer_type','source_chat_id','vat_condition') if key in q and q[key][0]!=''}
+                    if 'group' in q: filters['group']=q['group']
                     found=core.search(db,self.server.root,filters); result={'results':found['items'],'coverage_warning':found['coverage_warning']}
                 elif path.startswith('/api/messages/'):
                     m=t.row(db,'messages',int(path.split('/')[3])); f=t.safe(self.server.root,m['path']); t.require(f.is_file() and t.sha(f.read_bytes())==m['sha256'] and t.sha(m['text'].encode())==m['sha256'],'Исходник отсутствует или изменён'); result={'id':m['id'],'text':m['text'],'date':m['date'],'time':m['time'],'author':m['author'],'chat':t.row(db,'chats',m['chat_id'])['name'],'platform':t.chat_platform(db,m['chat_id'])}
                 elif path.startswith('/api/documents/'):
-                    d=t.row(db,'documents',int(path.split('/')[3])); doc=next(x for x in core.documents(db,self.server.root,d['company_id']) if x['id']==d['id']); t.require(doc['ready'],'Документ не подтверждён, отсутствует или изменён'); data=t.safe(self.server.root,d['path']).read_bytes(); t.require(t.sha(data)==d['sha256'],'Документ изменён'); db.commit(); self.send_response(200); self.send_header('Content-Type','application/octet-stream'); self.send_header('Content-Disposition',"attachment; filename*=UTF-8''"+__import__('urllib.parse',fromlist=['quote']).quote(d['name'],safe='')); self.send_header('Content-Length',str(len(data))); self.send_header('X-Content-Type-Options','nosniff'); self.end_headers(); self.wfile.write(data); return
+                    d=t.row(db,'documents',int(path.split('/')[3])); doc=next(x for x in core.documents(db,self.server.root,d['company_id']) if x['id']==d['id']); t.require(doc['intact'] and (not doc['invoice_id'] or bool(db.execute('SELECT 1 FROM invoices WHERE id=? AND company_id=?',(doc['invoice_id'],d['company_id'])).fetchone())),'Файл отсутствует, изменён или неправильно связан с предложением'); data=t.safe(self.server.root,d['path']).read_bytes(); t.require(t.sha(data)==d['sha256'],'Документ изменён'); db.commit(); self.send_response(200); self.send_header('Content-Type','application/octet-stream'); self.send_header('Content-Disposition',"attachment; filename*=UTF-8''"+__import__('urllib.parse',fromlist=['quote']).quote(d['name'],safe='')); self.send_header('Content-Length',str(len(data))); self.send_header('X-Content-Type-Options','nosniff'); self.end_headers(); self.wfile.write(data); return
                 elif path=='/api/review': result=t.execute(db,self.server.root,'review',{})
                 elif path=='/api/history':
                     sends=[]
@@ -82,14 +95,15 @@ class Handler(BaseHTTPRequestHandler):
                         item=dict(send); item['corrections']=[dict(x) for x in db.execute('SELECT * FROM corrections WHERE send_id=? ORDER BY id',(send['id'],))]; sends.append(item)
                     result={'history':[dict(x) for x in db.execute('SELECT * FROM history ORDER BY id DESC')], 'sends':sends} 
                 else: db.rollback(); return self.reply(404,{'error':'Не найдено'})
-                db.commit(); return self.reply(200,result)
+                db.commit(); return self.reply(200,core.decorate_shares(db,result))
             finally: db.close()
         except (ValueError,TypeError,KeyError,sqlite3.Error,OSError) as e: return self.reply(409,{'error':str(e)})
     def do_POST(self):
         if not self.host_ok() or not self.origin_ok(): return self.reply(403,{'error':'Недопустимый источник запроса'})
         path=urlsplit(self.path).path
         try:
-            p=self.body()
+            is_upload=path.startswith('/api/terms/') and path.endswith('/documents') and len(path.split('/'))==5
+            p=self.body(28*1024*1024 if is_upload else 1000000)
             if path=='/api/login':
                 now=time.time(); ATTEMPTS[:]=[x for x in ATTEMPTS if x>now-60]
                 if len(ATTEMPTS)>=5: return self.reply(429,{'error':'Слишком много попыток; повторите позже'})
@@ -103,17 +117,31 @@ class Handler(BaseHTTPRequestHandler):
                 from http.cookies import SimpleCookie
                 c=SimpleCookie(); c.load(self.headers.get('Cookie','')); SESSIONS.pop(c['session'].value,None); return self.reply(200,{'authenticated':False},{'Set-Cookie':'session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0'})
             db=core.connect(self.server.root)
+            saved=[]
             try:
                 db.execute('BEGIN IMMEDIATE')
-                if path=='/api/blocks': result=core.prepare(db,self.server.root,p)
+                if path.startswith('/api/terms/') and path.endswith('/share') and len(path.split('/'))==7 and path.split('/')[4]=='documents': result=core.set_document_share(db,self.server.root,int(path.split('/')[3]),int(path.split('/')[5]),p)
+                elif is_upload: result=core.upload_documents(db,self.server.root,int(path.split('/')[3]),p,saved)
+                elif path.startswith('/api/terms/') and path.endswith('/card') and len(path.split('/'))==5: result=core.save_card(db,self.server.root,int(path.split('/')[3]),p)
+                elif path.startswith('/api/terms/') and path.endswith('/review') and len(path.split('/'))==5: result=core.set_operator_review(db,self.server.root,int(path.split('/')[3]),p)
+                elif path.startswith('/api/terms/') and path.endswith('/vat-classification') and len(path.split('/'))==5: result=core.classify_vat(db,self.server.root,int(path.split('/')[3]),p)
+                elif path.startswith('/api/terms/') and path.endswith('/client-fields') and len(path.split('/'))==5: result=core.edit_client_fields(db,self.server.root,int(path.split('/')[3]),p)
+                elif path.startswith('/api/terms/') and path.endswith('/classification') and len(path.split('/'))==5: result=core.classify_term(db,self.server.root,int(path.split('/')[3]),p)
+                elif path.startswith('/api/terms/') and path.endswith('/public-text') and len(path.split('/'))==5: result=core.save_public_text(db,self.server.root,int(path.split('/')[3]),p)
+                elif path.startswith('/api/terms/') and path.endswith('/client-comment') and len(path.split('/'))==5: result=core.save_client_comment(db,self.server.root,int(path.split('/')[3]),p)
+                elif path=='/api/common-preview': result=core.common_preview(db,self.server.root,p)
+                elif path=='/api/blocks': result=core.prepare(db,self.server.root,p)
                 elif path.startswith('/api/blocks/') and path.endswith('/send'): result=core.confirm(db,self.server.root,int(path.split('/')[3]),p)
                 elif path=='/api/chat': result=t.execute(db,self.server.root,'chat',p)
                 elif path=='/api/chat-platform': result=t.execute(db,self.server.root,'chat-platform',p)
                 elif path=='/api/recipient': result=t.execute(db,self.server.root,'recipient',p)
                 elif path=='/api/correction': result=t.execute(db,self.server.root,'correction',p)
                 else: db.rollback(); return self.reply(404,{'error':'Не найдено'})
-                db.commit(); return self.reply(200,result)
-            except Exception: db.rollback(); raise
+                db.commit(); saved.clear(); return self.reply(200,result)
+            except Exception:
+                db.rollback()
+                for rel in saved: t.safe(self.server.root,rel).unlink(missing_ok=True)
+                raise
             finally: db.close()
         except (ValueError,TypeError,KeyError,sqlite3.Error,OSError,json.JSONDecodeError) as e:
             result={'error':str(e)}
@@ -130,7 +158,7 @@ class Handler(BaseHTTPRequestHandler):
 def main():
     parser=argparse.ArgumentParser(); parser.add_argument('--root',required=True); parser.add_argument('--port',type=int,default=8765); parser.add_argument('--setup-password',action='store_true'); parser.add_argument('--migrate-copy',metavar='V1_DATABASE'); args=parser.parse_args()
     root=Path(args.root).expanduser().resolve()
-    if args.migrate_copy: core.migrate_copy(args.migrate_copy,root); print('Создана проверенная копия экземпляра схемы v2.'); return
+    if args.migrate_copy: core.migrate_copy(args.migrate_copy,root); print('Создана проверенная копия экземпляра с обновлённой схемой.'); return
     t.require(root.is_dir(),'Папка экземпляра должна существовать')
     if args.setup_password: setup(root); print('Тестовый пароль установлен.'); return
     t.require((root/'local-auth.json').is_file(),'Сначала установите пароль через --setup-password'); db=core.connect(root); db.close()

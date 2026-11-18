@@ -46,6 +46,24 @@ def valid_inn(s):
     if len(n)==12: return sum(a*b for a,b in zip(n,[7,2,4,10,3,5,9,4,6,8]))%11%10==n[10] and sum(a*b for a,b in zip(n,[3,7,2,4,10,3,5,9,4,6,8]))%11%10==n[11]
     return False
 
+def identity_needs_review(company):
+    return company['inn_status'] not in ('verified', 'unverified') or not valid_inn(company['inn'])
+
+def identity_conflict(db, company):
+    for other in db.execute('SELECT id,name,inn,inn_status FROM companies WHERE id!=?', (company['company_id'],)):
+        same_name=other['name'].strip().casefold()==company['name'].strip().casefold()
+        same_inn=bool(company['inn']) and other['inn']==company['inn']
+        safe_pair=(same_inn and same_name and valid_inn(company['inn']) and
+                   company['inn_status'] in ('verified','unverified') and other['inn_status'] in ('verified','unverified'))
+        if (same_name or same_inn) and not safe_pair: return True
+    return False
+
+def related_company_ids(db, company):
+    ids=[company['company_id']]
+    if valid_inn(company['inn']):
+        ids.extend(r['id'] for r in db.execute('SELECT id FROM companies WHERE id!=? AND inn=?', (company['company_id'],company['inn'])))
+    return ids
+
 def safe(root, rel):
     p=(root / rel).resolve()
     require(p.is_relative_to(root), 'path outside project root')
@@ -81,8 +99,10 @@ def context_hash(db, exclude_block=None):
     state={table:[list(r) for r in db.execute(f'SELECT * FROM {table} ORDER BY id')] for table in ('messages','companies','offers','terms','requests','documents')}
     state['sends']=[list(r) for r in db.execute('SELECT * FROM sends WHERE block_id IS NOT ? ORDER BY id',(exclude_block,))]
     if db.execute('PRAGMA user_version').fetchone()[0]>=2:
-        for table in ('pricing','company_vat','corrections'):
-            state[table]=[list(r) for r in db.execute(f'SELECT * FROM {table} ORDER BY id')]
+        for table in ('pricing','company_vat','corrections') + (('invoices','invoice_offers','document_classification') if db.execute('PRAGMA user_version').fetchone()[0]>=3 else ()):
+            state[table]=[list(r) for r in db.execute(f'SELECT * FROM {table} ORDER BY rowid')]
+    if db.execute('PRAGMA user_version').fetchone()[0]>=3:
+        state['document_issues']=[list(r) for r in db.execute("SELECT * FROM history WHERE entity='document_issue' ORDER BY id")]
     return sha(canonical(state).encode())
 def normalize_term(t):
     require(isinstance(t,dict),'term must be an object')
@@ -95,7 +115,7 @@ def normalize_term(t):
     if t.get('duration') is not None:
         require(isinstance(t['duration'],(int,float)) and not isinstance(t['duration'],bool) and t['duration']>=0,'invalid duration')
         require(t.get('duration_unit') in ('day','hour','week','month'), 'duration unit required')
-    require(t.get('color') in (None,'green','yellow','зелёный','зеленый','жёлтый','желтый'), 'invalid color')
+    require(t.get('color') in (None,'green','yellow','red','зелёный','зеленый','жёлтый','желтый','красный'), 'invalid color')
     require(isinstance(t.get('scope_confirmed',False),bool) and isinstance(t.get('review',False),bool),'invalid review flags')
     return t
 
@@ -159,7 +179,7 @@ def readable_fields(value, indent=0, field=None):
     if value is None: return pad+'неизвестно\n'
     if isinstance(value,bool): return pad+('да' if value else 'нет')+'\n'
     if field=='duration_unit' and isinstance(value,str): value={'day':'дни','hour':'часы','week':'недели','month':'месяцы'}.get(value,value)
-    if field=='color' and isinstance(value,str): value={'green':'зелёная','yellow':'жёлтая'}.get(value,value)
+    if field=='color' and isinstance(value,str): value={'green':'зелёная','yellow':'жёлтая','red':'красная'}.get(value,value)
     return pad+str(value)+'\n'
 
 def plan(db, chat_id, date, apply_decisions=True, exclude_block=None, root=None):
@@ -167,20 +187,42 @@ def plan(db, chat_id, date, apply_decisions=True, exclude_block=None, root=None)
     result=[]; context=context_hash(db,exclude_block) if apply_decisions else None
     version2 = db.execute('PRAGMA user_version').fetchone()[0]>=2
     factual = ' AND NOT EXISTS (SELECT 1 FROM corrections corr WHERE corr.send_id=s.id AND corr.cancels=1)' if version2 else ''
-    supported = {'category','rate','duration','duration_unit','vat','color','conditions','scope_confirmed','review','amount','minimum','currency','restrictions','field_provenance'}
+    supported = {'category','rate','duration','duration_unit','vat','color','conditions','scope_confirmed','review','amount','minimum','currency','restrictions','field_provenance','groups','vat_classification'}
     if version2: supported |= {'rate_unit','rate_type','rate_basis','rate_text','duration_text','duration_max','duration_day_type','payment','color_source','color_date'}
     records=db.execute('''SELECT t.id term_id,t.data,t.active,o.company_id,o.message_id,c.name,c.inn,c.inn_status,m.chat_id source_chat,m.date,m.path source_path,ch.name source_chat_name FROM terms t JOIN offers o ON o.id=t.offer_id JOIN companies c ON c.id=o.company_id JOIN messages m ON m.id=o.message_id JOIN chats ch ON ch.id=m.chat_id WHERE m.date=? ORDER BY t.id''',(date,)).fetchall()
     for r in records:
         t=json.loads(r['data']); reason='ok'
-        own=db.execute('SELECT 1 FROM offers o JOIN messages m ON m.id=o.message_id WHERE o.company_id=? AND m.chat_id=? AND m.date=? LIMIT 1',(r['company_id'],chat_id,date)).fetchone()
+        related=related_company_ids(db,r); related_sql=','.join('?' for _ in related)
+        own=db.execute(f'SELECT 1 FROM offers o JOIN messages m ON m.id=o.message_id WHERE o.company_id IN ({related_sql}) AND m.chat_id=? AND m.date=? LIMIT 1',(*related,chat_id,date)).fetchone()
+        invoice=None
+        if db.execute('PRAGMA user_version').fetchone()[0]>=3:
+            invoice=db.execute('SELECT io.invoice_id FROM invoice_offers io JOIN terms t ON t.offer_id=io.offer_id WHERE t.id=?',(r['term_id'],)).fetchone()
+        own_company=own; possible_invoice_matches=[]
+        if invoice:
+            import web_core as core
+            possible_invoice_matches=core.invoice_matches(db,invoice['invoice_id'])
+        reclassified_issue=False
+        if not invoice and db.execute('PRAGMA user_version').fetchone()[0]>=3:
+            reclassified_issue=bool(db.execute('''SELECT 1 FROM history h JOIN terms t ON t.offer_id=h.entity_id
+                JOIN history issue ON issue.entity='document_issue' AND issue.action='open' AND json_extract(issue.data,'$.invoice_id')=json_extract(h.data,'$.previous_invoice_id')
+                WHERE h.entity='offer' AND h.action='invoice_to_company' AND t.id=?
+                AND NOT EXISTS(SELECT 1 FROM history resolved WHERE resolved.entity='document_issue' AND resolved.action='resolve' AND resolved.entity_id=issue.id) LIMIT 1''',(r['term_id'],)).fetchone())
+        if invoice:
+            own=db.execute('''SELECT 1 FROM offers o JOIN messages m ON m.id=o.message_id
+                WHERE m.chat_id=? AND (EXISTS(SELECT 1 FROM invoice_offers io WHERE io.offer_id=o.id AND io.invoice_id=?)
+                OR EXISTS(SELECT 1 FROM history h WHERE h.entity='offer' AND h.entity_id=o.id AND h.action='invoice_to_company' AND json_extract(h.data,'$.previous_invoice_id')=?)) LIMIT 1''',(chat_id,invoice['invoice_id'],invoice['invoice_id'])).fetchone()
         sent=db.execute('SELECT 1 FROM sends s JOIN blocks b ON b.id=s.block_id WHERE s.term_id=? AND b.chat_id=?'+factual,(r['term_id'],chat_id)).fetchone()
-        sent_company=db.execute('SELECT 1 FROM sends s JOIN blocks b ON b.id=s.block_id JOIN terms t ON t.id=s.term_id JOIN offers o ON o.id=t.offer_id WHERE o.company_id=? AND b.chat_id=? AND t.offer_id != (SELECT offer_id FROM terms WHERE id=?) AND s.block_id IS NOT ?'+factual+' LIMIT 1',(r['company_id'],chat_id,r['term_id'],exclude_block)).fetchone()
+        sent_company=db.execute(f'SELECT 1 FROM sends s JOIN blocks b ON b.id=s.block_id JOIN terms t ON t.id=s.term_id JOIN offers o ON o.id=t.offer_id WHERE o.company_id IN ({related_sql}) AND b.chat_id=? AND t.offer_id != (SELECT offer_id FROM terms WHERE id=?) AND s.block_id IS NOT ?'+factual+' LIMIT 1',(*related,chat_id,r['term_id'],exclude_block)).fetchone()
         sent_previous=db.execute('''WITH RECURSIVE ancestors(id,previous_id) AS (SELECT id,previous_id FROM terms WHERE id=? UNION ALL SELECT t.id,t.previous_id FROM terms t JOIN ancestors a ON t.id=a.previous_id) SELECT 1 FROM ancestors a JOIN sends s ON s.term_id=a.id JOIN blocks b ON b.id=s.block_id WHERE b.chat_id=? AND s.block_id IS NOT ?'''+factual+' LIMIT 1',(r['term_id'],chat_id,exclude_block)).fetchone()
-        sources=db.execute('SELECT COUNT(DISTINCT m.chat_id) FROM offers o JOIN messages m ON m.id=o.message_id WHERE o.company_id=? AND m.date=?',(r['company_id'],date)).fetchone()[0]
-        past=db.execute('SELECT 1 FROM offers o JOIN messages m ON m.id=o.message_id WHERE o.company_id=? AND m.chat_id=? AND m.date<? LIMIT 1',(r['company_id'],chat_id,date)).fetchone()
+        sources=db.execute(f'SELECT COUNT(DISTINCT m.chat_id) FROM offers o JOIN messages m ON m.id=o.message_id WHERE o.company_id IN ({related_sql}) AND m.date=?',(*related,date)).fetchone()[0]
+        if invoice:
+            sent_company=db.execute('SELECT 1 FROM sends s JOIN blocks b ON b.id=s.block_id JOIN terms t ON t.id=s.term_id JOIN invoice_offers io ON io.offer_id=t.offer_id WHERE io.invoice_id=? AND b.chat_id=? AND t.id!=? AND s.block_id IS NOT ?'+factual+' LIMIT 1',(invoice['invoice_id'],chat_id,r['term_id'],exclude_block)).fetchone()
+            sources=db.execute('SELECT COUNT(DISTINCT m.chat_id) FROM invoice_offers io JOIN offers o ON o.id=io.offer_id JOIN messages m ON m.id=o.message_id WHERE io.invoice_id=? AND m.date=?',(invoice['invoice_id'],date)).fetchone()[0]
+            own_company=db.execute(f'SELECT 1 FROM offers o JOIN messages m ON m.id=o.message_id LEFT JOIN invoice_offers io ON io.offer_id=o.id WHERE o.company_id IN ({related_sql}) AND m.chat_id=? AND m.date=? AND io.offer_id IS NULL LIMIT 1',(*related,chat_id,date)).fetchone()
+        past=db.execute(f'SELECT 1 FROM offers o JOIN messages m ON m.id=o.message_id WHERE o.company_id IN ({related_sql}) AND m.chat_id=? AND m.date<? LIMIT 1',(*related,chat_id,date)).fetchone()
         suspicious=db.execute('''SELECT 1 FROM offers o JOIN companies c ON c.id=o.company_id JOIN messages m ON m.id=o.message_id
-          WHERE m.chat_id=? AND m.date=? AND o.company_id!=? AND (lower(trim(c.name))=lower(trim(?)) OR (c.inn IS NOT NULL AND c.inn=?)) LIMIT 1''',(chat_id,date,r['company_id'],r['name'],r['inn'])).fetchone()
-        identity_conflict=db.execute('''SELECT 1 FROM companies c WHERE c.id!=? AND (lower(trim(c.name))=lower(trim(?)) OR (c.inn IS NOT NULL AND c.inn=?)) LIMIT 1''',(r['company_id'],r['name'],r['inn'])).fetchone()
+          WHERE m.chat_id=? AND m.date=? AND o.company_id NOT IN (SELECT value FROM json_each(?)) AND (lower(trim(c.name))=lower(trim(?)) OR (c.inn IS NOT NULL AND c.inn=?)) LIMIT 1''',(chat_id,date,canonical(related),r['name'],r['inn'])).fetchone()
+        has_identity_conflict=identity_conflict(db,r)
         version_conflict=db.execute('''SELECT 1 FROM messages m1 JOIN messages m2 ON m1.chat_id=m2.chat_id AND m1.source_id=m2.source_id AND m1.id!=m2.id WHERE m1.id=? AND m1.source_id IS NOT NULL AND (m2.version>m1.version OR EXISTS(SELECT 1 FROM offers o JOIN terms t ON t.offer_id=o.id AND t.active=1 WHERE o.message_id=m2.id)) LIMIT 1''',(r['message_id'],)).fetchone()
         mentions=False; negotiation=False
         ancestors={x[0] for x in db.execute('WITH RECURSIVE a(id,previous_id) AS (SELECT id,previous_id FROM terms WHERE id=? UNION ALL SELECT t.id,t.previous_id FROM terms t JOIN a ON t.id=a.previous_id) SELECT id FROM a',(r['term_id'],))}
@@ -194,17 +236,21 @@ def plan(db, chat_id, date, apply_decisions=True, exclude_block=None, root=None)
                     block=db.execute('SELECT items FROM blocks WHERE id=? AND chat_id=?',(block_id,chat_id)).fetchone() if isinstance(block_id,int) and not isinstance(block_id,bool) else None
                     if block and ancestors.intersection(x['term_id'] for x in json.loads(block['items'])): negotiation=True
         risks=[]
-        for condition,label in ((not r['active'],'inactive'),(own,'recipient_source_today'),(sent,'already_sent'),(suspicious,'possible_recipient_company_review'),(sent_previous or sent_company,'company_previously_sent_review'),(r['inn_status']!='verified','identity_review'),(identity_conflict,'possible_identity_conflict_review'),(version_conflict,'message_versions_review'),(not t.get('scope_confirmed',False) or t.get('review',False),'terms_review'),(t.get('rate') is None,'rate_unknown'),(set(t)-supported,'unrendered_fields_review'),(sources>1,'multiple_sources_review'),(past,'past_recipient_source_review'),(mentions,'recipient_mention_review'),(negotiation,'negotiation_review'),(invalid_provenance(db,t,root),'invalid_field_provenance_review')):
+        for condition,label in ((not r['active'],'inactive'),(own,'recipient_source_today'),(bool(invoice and own_company),'recipient_company_invoice_review'),(bool(possible_invoice_matches),'possible_invoice_match_review'),(reclassified_issue,'reclassified_invoice_document_review'),(sent,'already_sent'),(suspicious,'possible_recipient_company_review'),(sent_previous or sent_company,'company_previously_sent_review'),(identity_needs_review(r),'identity_review'),(has_identity_conflict,'possible_identity_conflict_review'),(version_conflict,'message_versions_review'),(not t.get('scope_confirmed',False) or t.get('review',False),'terms_review'),(t.get('rate') is None,'rate_unknown'),(set(t)-supported,'unrendered_fields_review'),(sources>1,'multiple_sources_review'),(past,'past_recipient_source_review'),(mentions,'recipient_mention_review'),(negotiation,'negotiation_review'),(invalid_provenance(db,t,root),'invalid_field_provenance_review')):
             if condition: risks.append(label)
+        # The CLI renderer does not use the web's client fields. Do not let it
+        # silently prepare an obsolete price or conditions after a web edit.
+        if version2 and db.execute("SELECT 1 FROM history WHERE entity='client_fields' AND entity_id=? AND action='edit' LIMIT 1",(r['term_id'],)).fetchone(): risks.append('client_fields_web_only')
         unresolved=[]
         for risk in risks:
-            decision=apply_decisions and risk.endswith('_review') and risk not in ('identity_review','terms_review','unrendered_fields_review','message_versions_review','invalid_field_provenance_review') and db.execute('SELECT 1 FROM risk_decisions WHERE chat_id=? AND date=? AND term_id=? AND risk=? AND state_hash=? LIMIT 1',(chat_id,date,r['term_id'],risk,context)).fetchone()
+            decision=apply_decisions and risk.endswith('_review') and risk not in ('identity_review','terms_review','unrendered_fields_review','message_versions_review','invalid_field_provenance_review','reclassified_invoice_document_review') and db.execute('SELECT 1 FROM risk_decisions WHERE chat_id=? AND date=? AND term_id=? AND risk=? AND state_hash=? LIMIT 1',(chat_id,date,r['term_id'],risk,context)).fetchone()
             if not decision: unresolved.append(risk)
         reason=unresolved[0] if unresolved else 'ok'
         result.append({'term_id':r['term_id'],'company_id':r['company_id'],'company':r['name'],'inn':r['inn'],'terms':t,'reason':reason,'reasons':unresolved,'message_id':r['message_id'],'source_path':r['source_path'],'source_chat_id':r['source_chat'],'source_chat':r['source_chat_name'],'inn_status':r['inn_status'],'field_provenance':provenance_sources(db,t)})
     return result
 
 def block_stale(db, b, root):
+    if db.execute("SELECT 1 FROM history h, json_each(h.data,'$.affected_block_ids') j WHERE h.entity='offer' AND h.action='invoice_to_company' AND j.value=? LIMIT 1",(b['id'],)).fetchone(): return True
     before=json.loads(b['plan_data']); current=plan(db,b['chat_id'],b['date'],exclude_block=b['id'],root=root)
     own_sent={r[0] for r in db.execute('SELECT term_id FROM sends WHERE block_id=? AND term_id IS NOT NULL',(b['id'],))}
     old={x['term_id']:x for x in before}
@@ -233,8 +279,118 @@ def chat_platform(db, chat_id):
 
 def execute(db, root, command, p):
     require(isinstance(p,dict),'JSON input must be an object')
-    if db.execute('PRAGMA user_version').fetchone()[0] == 2:
+    if db.execute('PRAGMA user_version').fetchone()[0] in (2,3):
         import web_core as core
+        if db.execute('PRAGMA user_version').fetchone()[0]==3 and command in ('invoice-create','invoice-update','invoice-review'):
+            reason=p.get('reason'); require(isinstance(reason,str) and reason.strip(),'reason required')
+            if command=='invoice-review':
+                invoice=row(db,'invoices',p.get('invoice_id')); require(isinstance(p.get('source'),str) and p['source'].strip(),'review source required')
+                state=core.invoice_state(db,root,invoice['id']); hist(db,'invoice',invoice['id'],'review',{'state_hash':state,'source':p['source'],'reason':reason}); return {'invoice_id':invoice['id'],'state_hash':state}
+            invoice=row(db,'invoices',p.get('invoice_id')) if command=='invoice-update' else None
+            cid=invoice['company_id'] if invoice else p.get('company_id'); row(db,'companies',cid)
+            mid=invoice['message_id'] if invoice else p.get('message_id'); row(db,'messages',mid)
+            data=p.get('data'); require(isinstance(data,dict),'invoice data required')
+            allowed={'number','date','amount','currency','due_date','subject','vat','description','field_provenance','discrepancies'}
+            require(not set(data)-allowed,'unknown invoice field')
+            for key in ('number','currency','subject','vat','description'):
+                require(data.get(key) is None or isinstance(data[key],str),'invalid invoice field '+key)
+            for key in ('date','due_date'):
+                if data.get(key) is not None: valid_date(data[key])
+            if data.get('amount') is not None:
+                require(isinstance(data['amount'],str),'amount must be an exact decimal string')
+                try: amount=Decimal(data['amount'].replace(',','.')); require(amount.is_finite() and amount>=0,'invalid invoice amount'); data=dict(data,amount=str(amount))
+                except InvalidOperation: raise ValueError('invalid invoice amount')
+            provenance=data.get('field_provenance',{}); require(isinstance(provenance,dict),'field_provenance must be an object')
+            for field,evidence in provenance.items():
+                require(field in data and field not in ('field_provenance','discrepancies') and isinstance(evidence,dict) and set(evidence)=={'document_id','operator_text'} and isinstance(evidence['operator_text'],str) and evidence['operator_text'].strip(),'invalid invoice field provenance')
+                doc=row(db,'documents',evidence['document_id']); require(doc['company_id']==cid,'provenance document company mismatch')
+                cls=db.execute('SELECT * FROM document_classification WHERE document_id=?',(doc['id'],)).fetchone(); require(invoice and cls and cls['classification']=='invoice' and cls['invoice_id']==invoice['id'],'provenance document must belong to invoice')
+            require(isinstance(data.get('discrepancies',[]),list) and all(isinstance(x,str) and x.strip() for x in data.get('discrepancies',[])),'invalid discrepancies')
+            if invoice:
+                db.execute('UPDATE invoices SET data=? WHERE id=?',(canonical(data),invoice['id'])); iid=invoice['id']; hist(db,'invoice',iid,'update',{'before':json.loads(invoice['data']),'after':data,'reason':reason})
+            else:
+                iid=db.execute('INSERT INTO invoices(company_id,message_id,data,created_at) VALUES(?,?,?,?)',(cid,mid,canonical(data),now())).lastrowid; hist(db,'invoice',iid,'create',{'data':data,'company_id':cid,'message_id':mid,'reason':reason})
+            return {'invoice_id':iid}
+        if db.execute('PRAGMA user_version').fetchone()[0]==3 and command=='invoice-show':
+            invoice=row(db,'invoices',p.get('invoice_id'))
+            return {'invoice':{'id':invoice['id'],'company_id':invoice['company_id'],'message_id':invoice['message_id'],**json.loads(invoice['data'])},'documents':core.documents(db,root,invoice['company_id'],invoice['id'],False),'offers':[dict(x) for x in db.execute('SELECT o.id,o.message_id,io.reason FROM offers o JOIN invoice_offers io ON io.offer_id=o.id WHERE io.invoice_id=? ORDER BY o.id',(invoice['id'],))],'possible_invoice_matches':core.invoice_matches(db,invoice['id']),'issues':core.invoice_issues(db,root,invoice['id']),'history':[dict(x) for x in db.execute("SELECT * FROM history WHERE entity='invoice' AND entity_id=? ORDER BY id",(invoice['id'],))]}
+        if db.execute('PRAGMA user_version').fetchone()[0]==3 and command=='invoice-link-document':
+            doc=row(db,'documents',p.get('document_id')); target=row(db,'invoices',p.get('invoice_id')); require(doc['company_id']==target['company_id'],'invoice belongs to another company')
+            require(not db.execute('SELECT 1 FROM sends WHERE document_id=? LIMIT 1',(doc['id'],)).fetchone(),'cannot relink a document with recorded sends')
+            old=db.execute('SELECT * FROM document_classification WHERE document_id=?',(doc['id'],)).fetchone(); require(old and old['classification']=='invoice' and old['invoice_id']!=target['id'],'document must belong to another invoice')
+            previous=row(db,'invoices',old['invoice_id']); provenance=json.loads(previous['data']).get('field_provenance',{})
+            require(not any(isinstance(e,dict) and e.get('document_id')==doc['id'] for e in provenance.values()),'update old invoice provenance before relinking document')
+            reason=p.get('reason'); source=p.get('source'); require(isinstance(reason,str) and reason.strip() and isinstance(source,str) and source.strip(),'reason and source required')
+            db.execute('UPDATE document_classification SET invoice_id=? WHERE document_id=?',(target['id'],doc['id'])); db.execute("UPDATE documents SET status='unverified' WHERE id=?",(doc['id'],))
+            hist(db,'document',doc['id'],'invoice_relink',{'previous_invoice_id':old['invoice_id'],'invoice_id':target['id'],'previous_status':doc['status'],'reason':reason,'source':source})
+            return {'document_id':doc['id'],'previous_invoice_id':old['invoice_id'],'invoice_id':target['id'],'status':'unverified'}
+        if db.execute('PRAGMA user_version').fetchone()[0]==3 and command=='invoice-link-offer':
+            term=row(db,'terms',p.get('term_id')); offer=row(db,'offers',term['offer_id']); target=row(db,'invoices',p.get('invoice_id'))
+            require(not db.execute('SELECT 1 FROM sends s JOIN terms t ON t.id=s.term_id WHERE t.offer_id=? LIMIT 1',(offer['id'],)).fetchone(),'cannot relink an offer with recorded sends')
+            require(target['company_id']==offer['company_id'],'invoice belongs to another company')
+            reason=p.get('reason'); source=p.get('source'); require(isinstance(reason,str) and reason.strip() and isinstance(source,str) and source.strip(),'reason and source required')
+            old=db.execute('SELECT * FROM invoice_offers WHERE offer_id=?',(offer['id'],)).fetchone(); require(old,'offer is not an invoice offer'); require(old['invoice_id']!=target['id'],'offer already linked to invoice'); require(db.execute('SELECT COUNT(*) FROM invoice_offers WHERE invoice_id=?',(old['invoice_id'],)).fetchone()[0]==1,'relink requires the old invoice to have exactly one offer')
+            db.execute('UPDATE invoice_offers SET invoice_id=?,reason=? WHERE offer_id=?',(target['id'],reason,offer['id']))
+            hist(db,'offer',offer['id'],'invoice_relink',{'previous_invoice_id':old['invoice_id'],'invoice_id':target['id'],'reason':reason,'source':source}); hist(db,'invoice',old['invoice_id'],'identified_as',{'invoice_id':target['id'],'reason':reason,'source':source})
+            return {'offer_id':offer['id'],'previous_invoice_id':old['invoice_id'],'invoice_id':target['id']}
+        if db.execute('PRAGMA user_version').fetchone()[0]==3 and command=='invoice-offer-to-company':
+            term=row(db,'terms',p.get('term_id')); offer=row(db,'offers',term['offer_id'])
+            reason=p.get('reason'); source=p.get('source'); require(isinstance(reason,str) and reason.strip() and isinstance(source,str) and source.strip(),'reason and source required')
+            old=db.execute('SELECT * FROM invoice_offers WHERE offer_id=?',(offer['id'],)).fetchone(); require(old,'offer is not an invoice offer')
+            require(not db.execute('SELECT 1 FROM sends s JOIN terms t ON t.id=s.term_id WHERE t.offer_id=? LIMIT 1',(offer['id'],)).fetchone(),'cannot reclassify an offer with recorded sends')
+            invoice=row(db,'invoices',old['invoice_id'])
+            dismiss=p.get('dismiss_issue_ids',[]); require(isinstance(dismiss,list) and all(isinstance(x,int) and not isinstance(x,bool) for x in dismiss) and len(dismiss)==len(set(dismiss)),'invalid issue ids')
+            issue_reason=p.get('issue_reason'); require(not dismiss or isinstance(issue_reason,str) and issue_reason.strip(),'issue reason required')
+            open_issues={x['id'] for x in core.invoice_issues(db,root,invoice['id'])}
+            require(set(dismiss)<=open_issues,'issue must be open and linked to the previous invoice')
+            require(not dismiss or db.execute('SELECT count(*) FROM invoice_offers WHERE invoice_id=?',(invoice['id'],)).fetchone()[0]==1,'cannot dismiss an issue for an invoice shared by other offers')
+            terms=db.execute('SELECT * FROM terms WHERE offer_id=? ORDER BY id',(offer['id'],)).fetchall()
+            require(len(terms)==1,'reclassification requires exactly one term; applicability of invoice data is ambiguous')
+            data=json.loads(invoice['data']); before=json.loads(terms[0]['data']); after=dict(before)
+            require(after.get('conditions') is None or isinstance(after['conditions'],str),'structured conditions require manual review')
+            labels={'number':'Номер','date':'Дата','amount':'Сумма','currency':'Валюта','due_date':'Срок оплаты','subject':'Назначение','vat':'НДС условия'}
+            details='; '.join(labels[k]+': '+str(data[k]) for k in labels if data.get(k) is not None)
+            if details: after['conditions']='\n'.join(x for x in (after.get('conditions'), details) if x)
+            source_condition=p.get('source_condition')
+            if source_condition is not None:
+                message=row(db,'messages',offer['message_id'])
+                require(isinstance(source_condition,str) and source_condition.strip() and source_condition in message['text'],'source_condition must be an exact excerpt of the offer message')
+                after['conditions']='\n'.join(x for x in (after.get('conditions'),source_condition) if x)
+            if data.get('amount') is not None and after.get('amount') is None: after['amount']=data['amount']
+            if data.get('currency') is not None and after.get('currency') is None: after['currency']=data['currency']
+            conflicts=[k for k in ('amount','currency','vat') if before.get(k) is not None and data.get(k) is not None and str(before[k])!=str(data[k])]
+            if conflicts: after['review']=True
+            affected=[]
+            for block in db.execute('SELECT id,items FROM blocks'):
+                if any(item.get('term_id')==terms[0]['id'] for item in json.loads(block['items'])): affected.append(block['id'])
+            db.execute('UPDATE terms SET data=? WHERE id=?',(canonical(after),terms[0]['id']))
+            db.execute('DELETE FROM invoice_offers WHERE offer_id=?',(offer['id'],))
+            for issue_id in dismiss: hist(db,'document_issue',issue_id,'resolve',{'document_id':None,'disposition':'not_applicable','reason':issue_reason,'source':source,'offer_id':offer['id'],'previous_invoice_id':invoice['id']})
+            event={'previous_invoice_id':invoice['id'],'previous_link_reason':old['reason'],'reason':reason,'source':source,'term_id':terms[0]['id'],'before':before,'after':after,'invoice_data':data,'source_condition':source_condition,'affected_block_ids':affected,'dismissed_issue_ids':dismiss,'conflicting_fields':conflicts}
+            hist(db,'offer',offer['id'],'invoice_to_company',event); hist(db,'invoice',invoice['id'],'offer_reclassified',{'offer_id':offer['id'],'reason':reason,'source':source})
+            return {'offer_id':offer['id'],'term_id':terms[0]['id'],'previous_invoice_id':invoice['id'],'offer_type':'company','affected_block_ids':affected,'invoice_retained':True}
+        if db.execute('PRAGMA user_version').fetchone()[0]==3 and command=='company-create':
+            c=p.get('company'); require(isinstance(c,dict) and isinstance(c.get('name'),str) and c['name'].strip(),'company name required')
+            inn=c.get('inn'); status=c.get('inn_status','unverified' if inn else 'missing')
+            require(status in ('verified','missing','unverified','conflict') and (inn is None or isinstance(inn,str)),'invalid company identity')
+            if status=='verified':
+                require(valid_inn(inn),'invalid verified INN'); require(c.get('confirmation_kind') in ('user','document_or_external') and isinstance(c.get('confirmation_source'),str) and c['confirmation_source'].strip(),'confirmation kind and source required')
+            if status=='missing': require(not inn,'missing INN must be empty')
+            existing=db.execute("SELECT id FROM companies WHERE inn=? AND inn_status='verified'",(inn,)).fetchone() if status=='verified' else None
+            cid=existing[0] if existing else db.execute('INSERT INTO companies(name,inn,inn_status) VALUES(?,?,?)',(c['name'],inn,status)).lastrowid
+            if not existing: hist(db,'company',cid,'create',{'name':c['name'],'inn':inn,'inn_status':status,'source':p.get('source')})
+            if status=='verified': hist(db,'company',cid,'identity_decision',{'inn':inn,'inn_status':status,'confirmation_kind':c['confirmation_kind'],'confirmation_source':c['confirmation_source'],'reason':c['confirmation_source']})
+            return {'company_id':cid,'existing':bool(existing)}
+        if db.execute('PRAGMA user_version').fetchone()[0]==3 and command=='document-classify':
+            doc=row(db,'documents',p.get('document_id')); require(not db.execute('SELECT 1 FROM document_classification WHERE document_id=?',(doc['id'],)).fetchone(),'document already classified')
+            classification=p.get('classification'); reason=p.get('reason'); source=p.get('source')
+            require(classification in ('company','invoice') and isinstance(reason,str) and reason.strip() and isinstance(source,str) and source.strip(),'classification, reason and source required')
+            invoice_id=p.get('invoice_id')
+            if classification=='invoice':
+                require(row(db,'invoices',invoice_id)['company_id']==doc['company_id'],'invoice belongs to another company'); require(not db.execute('SELECT 1 FROM sends WHERE document_id=? LIMIT 1',(doc['id'],)).fetchone(),'cannot reclassify a document with recorded sends')
+                db.execute("UPDATE documents SET status='unverified' WHERE id=?",(doc['id'],))
+            else: require(invoice_id is None,'company document cannot have invoice_id')
+            db.execute('INSERT INTO document_classification VALUES(?,?,?)',(doc['id'],classification,invoice_id)); hist(db,'document',doc['id'],'classification',{'classification':classification,'invoice_id':invoice_id,'reason':reason,'source':source,'previous_status':doc['status']}); return {'document_id':doc['id'],'classification':classification,'invoice_id':invoice_id,'status':'unverified' if classification=='invoice' else doc['status']}
         if command=='chat-platform':
             chat=row(db,'chats',p.get('chat_id')); platform=p.get('platform')
             require(platform in ('telegram','whatsapp'), 'Укажите Telegram или WhatsApp')
@@ -274,9 +430,16 @@ def execute(db, root, command, p):
             require(not db.execute("SELECT 1 FROM history WHERE entity='document_issue' AND entity_id=? AND action='resolve'",(issue_id,)).fetchone(),'issue already resolved')
             reason=p.get('reason'); require(isinstance(reason,str) and reason.strip(),'resolution reason required')
             data=json.loads(issue['data']); cid=p.get('company_id',data.get('company_id')); row(db,'companies',cid)
+            if db.execute('PRAGMA user_version').fetchone()[0]>=3:
+                classification=p.get('classification',data.get('classification')); invoice_id=p.get('invoice_id',data.get('invoice_id'))
+                require(classification in ('company','invoice'),'document classification required')
+                if classification=='invoice': require(row(db,'invoices',invoice_id)['company_id']==cid,'invoice belongs to another company')
+                else: require(invoice_id is None,'company document cannot have invoice_id')
             if p.get('document_id') is not None:
                 doc=row(db,'documents',p['document_id']); require(doc['message_id']==data['message_id'] and doc['company_id']==cid,'document does not match issue')
                 did=doc['id']
+                if db.execute('PRAGMA user_version').fetchone()[0]>=3:
+                    cls=db.execute('SELECT * FROM document_classification WHERE document_id=?',(did,)).fetchone(); require(cls and cls['classification']==classification and cls['invoice_id']==invoice_id,'document classification mismatch')
             else:
                 path=p.get('path') or (str(safe(root,data['path'])) if data.get('path') else None)
                 require(isinstance(path,str) and path,'available file or document_id required')
@@ -288,9 +451,11 @@ def execute(db, root, command, p):
                     rel=save_file(root,folder,saved.suffix,content)
                     did=db.execute('INSERT INTO documents(message_id,company_id,name,path,sha256) VALUES(?,?,?,?,?)',(data['message_id'],cid,data['name'],rel,data['sha256'])).lastrowid
                 else:
-                    result=execute(db,root,'document',{'message_id':data['message_id'],'company_id':cid,'path':path})
+                    result=execute(db,root,'document',{'message_id':data['message_id'],'company_id':cid,'path':path,**({'classification':classification,'invoice_id':invoice_id} if db.execute('PRAGMA user_version').fetchone()[0]>=3 else {})})
                     require('document_id' in result,'file is still unavailable'); did=result['document_id']
                     db.execute('UPDATE documents SET name=? WHERE id=?',(data['name'],did))
+            if db.execute('PRAGMA user_version').fetchone()[0]>=3 and not db.execute('SELECT 1 FROM document_classification WHERE document_id=?',(did,)).fetchone():
+                db.execute('INSERT INTO document_classification VALUES(?,?,?)',(did,classification,invoice_id)); hist(db,'document',did,'classification',{'classification':classification,'invoice_id':invoice_id})
             resolved_doc=row(db,'documents',did); file=safe(root,resolved_doc['path']); require(file.is_file() and sha(file.read_bytes())==resolved_doc['sha256'],'document missing or changed')
             hist(db,'document_issue',issue_id,'resolve',{'document_id':did,'company_id':cid,'reason':reason})
             return {'issue_id':issue_id,'document_id':did,'status':'resolved','document_status':row(db,'documents',did)['status']}
@@ -353,6 +518,10 @@ def execute(db, root, command, p):
             require(o.get('kind','offer')=='offer','only offer items can enter offers')
             if message['reply_block_id'] is not None: require(o.get('kind')=='offer','reply offers require explicit kind')
             for t in ts: validate_provenance(db,root,t)
+            if 'invoice_id' in o:
+                require(db.execute('PRAGMA user_version').fetchone()[0]>=3 and 'company_id' in o,'invoice requires v3 and existing company_id')
+                invoice=row(db,'invoices',o['invoice_id']); require(invoice['company_id']==o['company_id'],'invoice belongs to another company')
+                require(isinstance(o.get('invoice_link_reason'),str) and o['invoice_link_reason'].strip(),'explicit invoice link reason required')
             if 'company_id' in o: row(db,'companies',o['company_id'])
             else:
                 c=o.get('company'); require(isinstance(c,dict) and isinstance(c.get('name'),str) and c['name'].strip(),'company name required')
@@ -374,12 +543,19 @@ def execute(db, root, command, p):
                 if status=='verified' and db.execute('PRAGMA user_version').fetchone()[0]>=2:
                     hist(db,'company',cid,'identity_decision',{'inn':inn,'inn_status':status,'confirmation_kind':c['confirmation_kind'],'confirmation_source':c['confirmation_source'],'reason':c['confirmation_source']})
             company_ids.append(cid); oid=db.execute('INSERT INTO offers(company_id,message_id) VALUES(?,?)',(cid,message['id'])).lastrowid
+            if 'invoice_id' in o:
+                db.execute('INSERT INTO invoice_offers(offer_id,invoice_id,reason) VALUES(?,?,?)',(oid,o['invoice_id'],o['invoice_link_reason'])); hist(db,'invoice',o['invoice_id'],'link_offer',{'offer_id':oid,'reason':o['invoice_link_reason']})
             for t in ts:
                 tid=db.execute('INSERT INTO terms(offer_id,data) VALUES(?,?)',(oid,canonical(t))).lastrowid; term_ids.append(tid); hist(db,'term',tid,'import',t)
         for req in requests: request_ids.append(db.execute('INSERT INTO requests(message_id,data) VALUES(?,?)',(message['id'],canonical(req))).lastrowid)
         return {'company_ids':company_ids,'term_ids':term_ids,'request_ids':request_ids}
     if command=='document':
         m=row(db,'messages',p.get('message_id')); cid=p.get('company_id'); raw=p.get('path'); name=p.get('name')
+        if db.execute('PRAGMA user_version').fetchone()[0]>=3:
+            classification=p.get('classification'); require(classification in ('company','invoice'),'document classification required')
+            if classification=='invoice':
+                invoice=row(db,'invoices',p.get('invoice_id')); require(cid is not None and invoice['company_id']==cid,'invoice belongs to another company')
+            else: require(p.get('invoice_id') is None,'company document cannot have invoice_id')
         if db.execute('PRAGMA user_version').fetchone()[0]>=2:
             require(raw is None or isinstance(raw,str) and raw.strip(),'invalid document path')
             require(name is None or isinstance(name,str) and name.strip(),'invalid document name')
@@ -393,18 +569,36 @@ def execute(db, root, command, p):
             if not available or cid is None:
                 title=name or (source.name if source else None); require(title,'document name required')
                 rel=save_file(root,f"дни/{m['date']}/реквизиты",source.suffix,data) if available else None
-                issue={'message_id':m['id'],'company_id':cid,'name':title,'original_path':raw,'path':rel,'sha256':sha(data) if data is not None else None,'file_available':available,'reason':'company_unresolved' if available else 'file_unavailable','reasons':(['file_unavailable'] if not available else [])+(['company_unresolved'] if cid is None else [])}
+                issue={'message_id':m['id'],'company_id':cid,'name':title,'original_path':raw,'path':rel,'sha256':sha(data) if data is not None else None,'file_available':available,**({'classification':classification,'invoice_id':p.get('invoice_id')} if db.execute('PRAGMA user_version').fetchone()[0]>=3 else {}),'reason':'company_unresolved' if available else 'file_unavailable','reasons':(['file_unavailable'] if not available else [])+(['company_unresolved'] if cid is None else [])}
                 issue_id=db.execute('INSERT INTO history(entity,entity_id,action,data,at) VALUES(?,?,?,?,?)',('document_issue',None,'open',canonical(issue),now())).lastrowid
                 return {'document_issue_id':issue_id,'status':'review','file_saved':available,'reason':issue['reason']}
         m=row(db,'messages',p.get('message_id')); c=row(db,'companies',cid); source=Path(raw or '').expanduser().resolve(); require(source.is_file(),'document file not found')
         data=source.read_bytes(); folder=f"компании/{c['inn'] if c['inn_status']=='verified' else 'id-'+str(c['id'])}/документы"; rel=save_file(root,folder,source.suffix,data)
-        did=db.execute('INSERT INTO documents(message_id,company_id,name,path,sha256) VALUES(?,?,?,?,?)',(m['id'],c['id'],source.name,rel,sha(data))).lastrowid; return {'document_id':did,'path':rel,'status':'unverified'}
+        try:
+            did=db.execute('INSERT INTO documents(message_id,company_id,name,path,sha256) VALUES(?,?,?,?,?)',(m['id'],c['id'],source.name,rel,sha(data))).lastrowid
+            if db.execute('PRAGMA user_version').fetchone()[0]>=3:
+                db.execute('INSERT INTO document_classification VALUES(?,?,?)',(did,classification,p.get('invoice_id'))); hist(db,'document',did,'classification',{'classification':classification,'invoice_id':p.get('invoice_id')})
+        except Exception:
+            safe(root,rel).unlink(missing_ok=True)
+            raise
+        return {'document_id':did,'path':rel,'status':'unverified'}
     if command in ('plan','draft'):
         chat=p.get('chat_id'); date=p.get('date',dt.date.today().isoformat()); items=plan(db,chat,date,root=root)
         result={'items':items,'coverage_warning':'Проверена только загруженная история; полнота не предполагается.'}
         if command=='draft':
             selected=[x for x in items if x['reason']=='ok']; lines=[]
             exclusions=[x for x in items if x['reason']!='ok']; reason_summary={}
+            # A manual risk decision must not put two sources of the same company/invoice in a block.
+            for index, item in enumerate(selected):
+                for previous in selected[:index]:
+                    same_company=previous['company_id'] in related_company_ids(db,item)
+                    if db.execute('PRAGMA user_version').fetchone()[0]>=3:
+                        import web_core as core
+                        left=core.invoice_for_term(db,previous['term_id']); right=core.invoice_for_term(db,item['term_id'])
+                        same_kind=(left or {}).get('id')==(right or {}).get('id')
+                    else: same_kind=True
+                    if same_company and same_kind:
+                        require(row(db,'terms',previous['term_id'])['offer_id']==row(db,'terms',item['term_id'])['offer_id'],'Выберите один источник для компании в блоке')
             for item in exclusions:
                 for reason in item['reasons']: reason_summary[reason]=reason_summary.get(reason,0)+1
             if not selected:
@@ -415,7 +609,7 @@ def execute(db, root, command, p):
                 for key,label in (('vat','НДС'),('color','Светофор'),('amount','Сумма'),('minimum','Минимум'),('currency','Валюта'),('conditions','Условия'),('restrictions','Ограничения')):
                     if t.get(key) is not None and t.get(key)!='':
                         value=t[key]
-                        if key=='color': value={'green':'зелёная','yellow':'жёлтая'}.get(value,value)
+                        if key=='color': value={'green':'зелёная','yellow':'жёлтая','red':'красная'}.get(value,value)
                         fields.append(f"{label}: {value}")
                 lines.append(f"{x['company']} (ИНН {x['inn']}) — {t['category']}, {t['rate']}%" + (f", срок: {t['duration']} { {'day':'дн.','hour':'ч.','week':'нед.','month':'мес.'}.get(t.get('duration_unit'),t.get('duration_unit',''))}" if t.get('duration') is not None else '') + (', '+', '.join(fields) if fields else ''))
             docs=[dict(r) for r in db.execute('SELECT id,company_id,name,path,status FROM documents WHERE company_id IN (SELECT o.company_id FROM offers o JOIN terms t ON t.offer_id=o.id WHERE t.id IN (%s))'%(','.join('?' for _ in selected) or 'NULL'),[x['term_id'] for x in selected])]
@@ -458,7 +652,7 @@ def execute(db, root, command, p):
         for r in rows:
             t=json.loads(r['data']); unknown=[]; mismatch=False
             unknown.extend(x for x in search_risks.get(r['id'],[]) if x in ('possible_identity_conflict_review','message_versions_review','multiple_sources_review','unrendered_fields_review','invalid_field_provenance_review'))
-            if r['inn_status']!='verified': unknown.append('identity_review')
+            if identity_needs_review(r): unknown.append('identity_review')
             if not t.get('scope_confirmed',False) or t.get('review',False): unknown.append('terms_review')
             for key,op in (('min_rate','min'),('max_rate','max')):
                 if p.get(key) is not None:
@@ -473,7 +667,7 @@ def execute(db, root, command, p):
                     else:
                         wanted=str(p[key]).casefold().replace('ё','е'); value=str(t[key]).casefold().replace('ё','е')
                         if key=='color':
-                            colors={'green':'зеленый','зеленая':'зеленый','yellow':'желтый','желтая':'желтый'}; wanted=colors.get(wanted,wanted); value=colors.get(value,value)
+                            colors={'green':'зеленый','зеленая':'зеленый','yellow':'желтый','желтая':'желтый','red':'красный','красная':'красный'}; wanted=colors.get(wanted,wanted); value=colors.get(value,value)
                         if key=='category':
                             for alias in ('стромат','стройматериалы'):
                                 wanted=wanted.replace(alias,'строительные материалы'); value=value.replace(alias,'строительные материалы')
@@ -487,13 +681,13 @@ def execute(db, root, command, p):
         items=[]
         for r in db.execute('SELECT t.id,t.data,c.id company_id,c.name,c.inn,c.inn_status,m.id message_id,m.path source_path,m.chat_id,ch.name source_chat,m.date FROM terms t JOIN offers o ON o.id=t.offer_id JOIN companies c ON c.id=o.company_id JOIN messages m ON m.id=o.message_id JOIN chats ch ON ch.id=m.chat_id WHERE t.active=1 ORDER BY t.id'):
             t=json.loads(r['data']); reasons=[]
-            if r['inn_status']!='verified': reasons.append('identity_review')
+            if identity_needs_review(r): reasons.append('identity_review')
             if t.get('review') or not t.get('scope_confirmed'): reasons.append('terms_review')
             if t.get('rate') is None: reasons.append('rate_unknown')
-            if db.execute('SELECT COUNT(DISTINCT m.chat_id) FROM offers o JOIN messages m ON m.id=o.message_id WHERE o.company_id=(SELECT o2.company_id FROM offers o2 JOIN terms t2 ON t2.offer_id=o2.id WHERE t2.id=?)',(r['id'],)).fetchone()[0]>1: reasons.append('multiple_sources_review')
-            if db.execute('SELECT 1 FROM companies WHERE id!=? AND (lower(trim(name))=lower(trim(?)) OR (inn IS NOT NULL AND inn=?)) LIMIT 1',(r['company_id'],r['name'],r['inn'])).fetchone(): reasons.append('possible_identity_conflict_review')
+            if db.execute('SELECT COUNT(DISTINCT m.chat_id) FROM offers o JOIN messages m ON m.id=o.message_id WHERE o.company_id IN (SELECT value FROM json_each(?))',(canonical(related_company_ids(db,r)),)).fetchone()[0]>1: reasons.append('multiple_sources_review')
+            if identity_conflict(db,r): reasons.append('possible_identity_conflict_review')
             if db.execute('''SELECT 1 FROM messages m1 JOIN messages m2 ON m1.chat_id=m2.chat_id AND m1.source_id=m2.source_id AND m1.id!=m2.id WHERE m1.id=? AND m1.source_id IS NOT NULL AND (m2.version>m1.version OR EXISTS(SELECT 1 FROM offers o JOIN terms t ON t.offer_id=o.id AND t.active=1 WHERE o.message_id=m2.id)) LIMIT 1''',(r['message_id'],)).fetchone(): reasons.append('message_versions_review')
-            supported={'category','rate','duration','duration_unit','vat','color','conditions','scope_confirmed','review','amount','minimum','currency','restrictions','field_provenance'}
+            supported={'category','rate','duration','duration_unit','vat','color','conditions','scope_confirmed','review','amount','minimum','currency','restrictions','field_provenance','groups','vat_classification'}
             if db.execute('PRAGMA user_version').fetchone()[0]>=2:
                 supported |= {'rate_unit','rate_type','rate_basis','rate_text','duration_text','duration_max','duration_day_type','payment','color_source','color_date'}
                 price=core.price_info(db,r['id'],t)
@@ -512,7 +706,12 @@ def execute(db, root, command, p):
                 if not intact: reasons.append('source_missing_or_changed')
             if set(t)-supported: reasons.append('unrendered_fields_review')
             if invalid_provenance(db,t,root): reasons.append('invalid_field_provenance_review')
-            if reasons: items.append({'term_id':r['id'],'company_id':r['company_id'],'company':r['name'],'inn':r['inn'],'inn_status':r['inn_status'],'message_id':r['message_id'],'source_path':r['source_path'],'source_chat_id':r['chat_id'],'source_chat':r['source_chat'],'date':r['date'],'terms':t,'field_provenance':provenance_sources(db,t),'reasons':reasons})
+            invoice=core.invoice_for_term(db,r['id']) if db.execute('PRAGMA user_version').fetchone()[0]>=3 else None
+            if invoice:
+                state=core.invoice_state(db,root,invoice['id'])
+                if not db.execute("SELECT 1 FROM history WHERE entity='invoice' AND entity_id=? AND action='review' AND json_extract(data,'$.state_hash')=? LIMIT 1",(invoice['id'],state)).fetchone(): reasons.append('invoice_review')
+                if core.invoice_issues(db,root,invoice['id']) or any(not d['ready'] for d in core.documents(db,root,r['company_id'],invoice['id'],False)): reasons.append('invoice_document_review')
+            if reasons: items.append({'offer_type':'invoice' if invoice else 'company','invoice':invoice,'term_id':r['id'],'company_id':r['company_id'],'company':r['name'],'inn':r['inn'],'inn_status':r['inn_status'],'message_id':r['message_id'],'source_path':r['source_path'],'source_chat_id':r['chat_id'],'source_chat':r['source_chat'],'date':r['date'],'terms':t,'field_provenance':provenance_sources(db,t),'reasons':reasons})
         docs=[dict(r) for r in db.execute("SELECT d.id,d.company_id,c.name company,c.inn,c.inn_status,d.status,d.path,d.name,m.id message_id,m.path source_path,m.chat_id source_chat_id,ch.name source_chat,m.date FROM documents d JOIN companies c ON c.id=d.company_id JOIN messages m ON m.id=d.message_id JOIN chats ch ON ch.id=m.chat_id WHERE d.status!='verified' ORDER BY d.id")]
         for doc in docs: doc['reasons']=['document_'+doc['status']]
         if db.execute('PRAGMA user_version').fetchone()[0]>=2:
@@ -695,14 +894,15 @@ review: {}; draft: {"chat_id":1,"date":"2026-11-17"}.
     try:
         root=Path(args.root).expanduser().resolve(); root.mkdir(parents=True,exist_ok=True); dbpath=Path(args.db).expanduser(); dbpath=dbpath if dbpath.is_absolute() else root/dbpath; dbpath=dbpath.resolve(); require(dbpath.is_relative_to(root),'database must be inside project root')
         payload=json.load(sys.stdin); db=sqlite3.connect(dbpath,timeout=10); db.row_factory=sqlite3.Row; db.execute('PRAGMA foreign_keys=ON'); db.execute('PRAGMA busy_timeout=10000')
-        version=db.execute('PRAGMA user_version').fetchone()[0]; require(version in (0,1,2),'unsupported schema version')
+        version=db.execute('PRAGMA user_version').fetchone()[0]; require(version in (0,1,2,3),'unsupported schema version')
         if version==0:
             require(args.command=='init','database not initialized'); require(not db.execute("SELECT 1 FROM sqlite_master WHERE type IN ('table','view','trigger') AND name NOT LIKE 'sqlite_%' LIMIT 1").fetchone(),'nonempty database with unknown schema'); db.executescript(SCHEMA)
         else:
             require(db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='risk_decisions'").fetchone() is not None and {'source_copy_path','reply_block_id'} <= {r[1] for r in db.execute('PRAGMA table_info(messages)')} and {'documents','plan_data'} <= {r[1] for r in db.execute('PRAGMA table_info(blocks)')},'unsupported or incomplete schema version 1')
-        if version==2:
+        if version==3: require(all(db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?",(name,)).fetchone() for name in ('invoices','invoice_offers','document_classification')),'incomplete schema v3')
+        if version in (2,3):
             require('actual_time' in {r[1] for r in db.execute('PRAGMA table_info(sends)')},'Несовместимый ранний вариант схемы v2; создайте новый экземпляр или повторите миграцию с v1 в новый каталог')
-        if version==2 and args.command not in ('backup','restore'):
+        if version in (2,3) and args.command not in ('backup','restore'):
             db.execute('BEGIN IMMEDIATE')
         with db: result=execute(db,root,args.command,payload)
         db.close(); print(json.dumps({'ok':True,**result},ensure_ascii=False))
